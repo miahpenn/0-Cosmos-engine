@@ -1,0 +1,2190 @@
+{
+  "A1": {
+    "dr": 0.05,
+    "dt": 0.0015,
+    "sha256": "f513092f78c15d9bd57282728c01ca03b7290c84aee3bab108d8581504e5fc9a",
+    "observed_steps": [
+      {
+        "t_start": 0.014999999999999998,
+        "t_end": 0.016499999999999997,
+        "stages": {
+          "accepted_start": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_M": 7.95011709600189e-12,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 0.0,
+            "band_delta_without_K_gradient": 0.0,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "initial_lapse": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_M": 7.95011709600189e-12,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 0.0,
+            "band_delta_without_K_gradient": 0.0,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "explicit_predictor": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 8.44669462497964e-20,
+              "matter_scalar": 4.9920085266334955e-09,
+              "matter_fluid": -6.473909958755239e-14,
+              "M": 4.991943787618378e-09
+            },
+            "band_M": 1.2642356482581715e-08,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 1.6477750170204102e-18,
+              "matter_scalar": 1.2648810535866866e-08,
+              "matter_fluid": 1.6476778102323444e-13,
+              "M": 1.2648645769839957e-08
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 1.264864576824905e-08,
+            "band_delta_without_K_gradient": 1.2648645769839982e-08,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "primary_before_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -1.9955869372351738e-09,
+              "Aa_over_r_term": -3.0508696123898257e-09,
+              "K_gradient": 1.4844645574499098e-12,
+              "metric_coupling": 1.3593209902001095e-19,
+              "matter_scalar": 4.9920085266334955e-09,
+              "matter_fluid": -6.473909958755239e-14,
+              "M": -5.302829739771755e-11
+            },
+            "band_M": 2.923337977729553e-11,
+            "band_delta": {
+              "Aa_prime": 5.033670235028384e-09,
+              "Aa_over_r_term": 7.634617731469847e-09,
+              "K_gradient": 3.699935914024043e-12,
+              "metric_coupling": 2.6567523052006876e-18,
+              "matter_scalar": 1.2648810535866866e-08,
+              "matter_fluid": 1.6476778102323444e-13,
+              "M": 2.129938277815237e-11
+            },
+            "band_delta_shear": 1.2668285109465953e-08,
+            "band_delta_matter": 1.264864576824905e-08,
+            "band_delta_without_K_gradient": 2.4201710633441057e-11,
+            "band_delta_K_gradient_difference_stable_readback": 5.6716570463235885e-18,
+            "band_delta_K_gradient_stable": 3.6999362818739924e-12
+          },
+          "primary_after_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -1.9955869372351738e-09,
+              "Aa_over_r_term": -3.0508696123898257e-09,
+              "K_gradient": 1.4844645574499098e-12,
+              "metric_coupling": 1.3593209902001095e-19,
+              "matter_scalar": 4.9920085266334955e-09,
+              "matter_fluid": -6.473909958755239e-14,
+              "M": -5.302829739771755e-11
+            },
+            "band_M": 2.923337977729553e-11,
+            "band_delta": {
+              "Aa_prime": 5.033670235028384e-09,
+              "Aa_over_r_term": 7.634617731469847e-09,
+              "K_gradient": 3.699935914024043e-12,
+              "metric_coupling": 2.6567523052006876e-18,
+              "matter_scalar": 1.2648810535866866e-08,
+              "matter_fluid": 1.6476778102323444e-13,
+              "M": 2.129938277815237e-11
+            },
+            "band_delta_shear": 1.2668285109465953e-08,
+            "band_delta_matter": 1.264864576824905e-08,
+            "band_delta_without_K_gradient": 2.4201710633441057e-11,
+            "band_delta_K_gradient_difference_stable_readback": 5.6716570463235885e-18,
+            "band_delta_K_gradient_stable": 3.6999362818739924e-12
+          },
+          "primary_after_lapse": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -1.9955869372351738e-09,
+              "Aa_over_r_term": -3.0508696123898257e-09,
+              "K_gradient": 1.4844645574499098e-12,
+              "metric_coupling": 1.3593209902001095e-19,
+              "matter_scalar": 4.9920085266334955e-09,
+              "matter_fluid": -6.473909958755239e-14,
+              "M": -5.302829739771755e-11
+            },
+            "band_M": 2.923337977729553e-11,
+            "band_delta": {
+              "Aa_prime": 5.033670235028384e-09,
+              "Aa_over_r_term": 7.634617731469847e-09,
+              "K_gradient": 3.699935914024043e-12,
+              "metric_coupling": 2.6567523052006876e-18,
+              "matter_scalar": 1.2648810535866866e-08,
+              "matter_fluid": 1.6476778102323444e-13,
+              "M": 2.129938277815237e-11
+            },
+            "band_delta_shear": 1.2668285109465953e-08,
+            "band_delta_matter": 1.264864576824905e-08,
+            "band_delta_without_K_gradient": 2.4201710633441057e-11,
+            "band_delta_K_gradient_difference_stable_readback": 5.6716570463235885e-18,
+            "band_delta_K_gradient_stable": 3.6999362818739924e-12
+          },
+          "corrector_before_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -1.9959789304640148e-09,
+              "Aa_over_r_term": -2.9980608243865924e-09,
+              "K_gradient": 8.256936800954406e-13,
+              "metric_coupling": 1.3750997322437759e-19,
+              "matter_scalar": 4.991221817894844e-09,
+              "matter_fluid": -6.47162798747235e-14,
+              "M": -2.056959418013499e-12
+            },
+            "band_M": 8.748889889888025e-12,
+            "band_delta": {
+              "Aa_prime": 5.034433569735665e-09,
+              "Aa_over_r_term": 7.615023853232995e-09,
+              "K_gradient": 2.1513449124626024e-12,
+              "metric_coupling": 2.7028020237488295e-18,
+              "matter_scalar": 1.2646844250798398e-08,
+              "matter_fluid": 1.647091079267234e-13,
+              "M": 7.99611808739416e-13
+            },
+            "band_delta_shear": 1.2649449786614991e-08,
+            "band_delta_matter": 1.2646679541853203e-08,
+            "band_delta_without_K_gradient": 2.8140012061527098e-12,
+            "band_delta_K_gradient_difference_stable_readback": 6.877507450386667e-18,
+            "band_delta_K_gradient_stable": 2.1513440127223523e-12
+          },
+          "corrector_after_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -1.9959789304640148e-09,
+              "Aa_over_r_term": -2.9980608243865924e-09,
+              "K_gradient": 8.256936800954406e-13,
+              "metric_coupling": 1.3750997322437759e-19,
+              "matter_scalar": 4.991221817894844e-09,
+              "matter_fluid": -6.47162798747235e-14,
+              "M": -2.056959418013499e-12
+            },
+            "band_M": 8.748889889888025e-12,
+            "band_delta": {
+              "Aa_prime": 5.034433569735665e-09,
+              "Aa_over_r_term": 7.615023853232995e-09,
+              "K_gradient": 2.1513449124626024e-12,
+              "metric_coupling": 2.7028020237488295e-18,
+              "matter_scalar": 1.2646844250798398e-08,
+              "matter_fluid": 1.647091079267234e-13,
+              "M": 7.99611808739416e-13
+            },
+            "band_delta_shear": 1.2649449786614991e-08,
+            "band_delta_matter": 1.2646679541853203e-08,
+            "band_delta_without_K_gradient": 2.8140012061527098e-12,
+            "band_delta_K_gradient_difference_stable_readback": 6.877507450386667e-18,
+            "band_delta_K_gradient_stable": 2.1513440127223523e-12
+          },
+          "accepted_end": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -1.9959789304640148e-09,
+              "Aa_over_r_term": -2.9980608243865924e-09,
+              "K_gradient": 8.256936800954406e-13,
+              "metric_coupling": 1.3750997322437759e-19,
+              "matter_scalar": 4.991221817894844e-09,
+              "matter_fluid": -6.47162798747235e-14,
+              "M": -2.056959418013499e-12
+            },
+            "band_M": 8.748889889888025e-12,
+            "band_delta": {
+              "Aa_prime": 5.034433569735665e-09,
+              "Aa_over_r_term": 7.615023853232995e-09,
+              "K_gradient": 2.1513449124626024e-12,
+              "metric_coupling": 2.7028020237488295e-18,
+              "matter_scalar": 1.2646844250798398e-08,
+              "matter_fluid": 1.647091079267234e-13,
+              "M": 7.99611808739416e-13
+            },
+            "band_delta_shear": 1.2649449786614991e-08,
+            "band_delta_matter": 1.2646679541853203e-08,
+            "band_delta_without_K_gradient": 2.8140012061527098e-12,
+            "band_delta_K_gradient_difference_stable_readback": 6.877507450386667e-18,
+            "band_delta_K_gradient_stable": 2.1513440127223523e-12
+          }
+        }
+      }
+    ]
+  },
+  "A2": {
+    "dr": 0.05,
+    "dt": 0.00075,
+    "sha256": "966345e60f39ff994b1b5dfb3b465413a1732c33f40468c05170daa8f0cf1f40",
+    "observed_steps": [
+      {
+        "t_start": 0.015000000000000005,
+        "t_end": 0.015750000000000004,
+        "stages": {
+          "accepted_start": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_M": 1.2623912374279054e-12,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 0.0,
+            "band_delta_without_K_gradient": 0.0,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "initial_lapse": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_M": 1.2623912374279054e-12,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 0.0,
+            "band_delta_without_K_gradient": 0.0,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "explicit_predictor": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 4.221830523478989e-20,
+              "matter_scalar": 2.495730404580997e-09,
+              "matter_fluid": -3.236996299644031e-14,
+              "M": 2.4956980346602186e-09
+            },
+            "band_M": 6.322767730299304e-09,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 8.2384057120272635e-19,
+              "matter_scalar": 6.323733497982526e-09,
+              "matter_fluid": 8.238494260429192e-14,
+              "M": 6.323651113916856e-09
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 6.323651113121397e-09,
+            "band_delta_without_K_gradient": 6.323651113916819e-09,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "primary_before_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -9.976798601918228e-10,
+              "Aa_over_r_term": -1.5117850928285723e-09,
+              "K_gradient": 5.821500688920216e-13,
+              "metric_coupling": 6.617751941319347e-20,
+              "matter_scalar": 2.495730404580997e-09,
+              "matter_fluid": -3.236996299644031e-14,
+              "M": -1.3184768267347475e-11
+            },
+            "band_M": 6.550149062003927e-12,
+            "band_delta": {
+              "Aa_prime": 2.516960036026823e-09,
+              "Aa_over_r_term": 3.812124856117819e-09,
+              "K_gradient": 1.4731101242642924e-12,
+              "metric_coupling": 1.2973479847545245e-18,
+              "matter_scalar": 6.323733497982526e-09,
+              "matter_fluid": 8.238494260429192e-14,
+              "M": 5.296223252727697e-12
+            },
+            "band_delta_shear": 6.329082844960601e-09,
+            "band_delta_matter": 6.323651113121397e-09,
+            "band_delta_without_K_gradient": 6.472116460681606e-12,
+            "band_delta_K_gradient_difference_stable_readback": 6.456167324017141e-18,
+            "band_delta_K_gradient_stable": 1.4731155154896221e-12
+          },
+          "primary_after_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -9.976798601918228e-10,
+              "Aa_over_r_term": -1.5117850928285723e-09,
+              "K_gradient": 5.821500688920216e-13,
+              "metric_coupling": 6.617751941319347e-20,
+              "matter_scalar": 2.495730404580997e-09,
+              "matter_fluid": -3.236996299644031e-14,
+              "M": -1.3184768267347475e-11
+            },
+            "band_M": 6.550149062003927e-12,
+            "band_delta": {
+              "Aa_prime": 2.516960036026823e-09,
+              "Aa_over_r_term": 3.812124856117819e-09,
+              "K_gradient": 1.4731101242642924e-12,
+              "metric_coupling": 1.2973479847545245e-18,
+              "matter_scalar": 6.323733497982526e-09,
+              "matter_fluid": 8.238494260429192e-14,
+              "M": 5.296223252727697e-12
+            },
+            "band_delta_shear": 6.329082844960601e-09,
+            "band_delta_matter": 6.323651113121397e-09,
+            "band_delta_without_K_gradient": 6.472116460681606e-12,
+            "band_delta_K_gradient_difference_stable_readback": 6.456167324017141e-18,
+            "band_delta_K_gradient_stable": 1.4731155154896221e-12
+          },
+          "primary_after_lapse": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -9.976798601918228e-10,
+              "Aa_over_r_term": -1.5117850928285723e-09,
+              "K_gradient": 5.821500688920216e-13,
+              "metric_coupling": 6.617751941319347e-20,
+              "matter_scalar": 2.495730404580997e-09,
+              "matter_fluid": -3.236996299644031e-14,
+              "M": -1.3184768267347475e-11
+            },
+            "band_M": 6.550149062003927e-12,
+            "band_delta": {
+              "Aa_prime": 2.516960036026823e-09,
+              "Aa_over_r_term": 3.812124856117819e-09,
+              "K_gradient": 1.4731101242642924e-12,
+              "metric_coupling": 1.2973479847545245e-18,
+              "matter_scalar": 6.323733497982526e-09,
+              "matter_fluid": 8.238494260429192e-14,
+              "M": 5.296223252727697e-12
+            },
+            "band_delta_shear": 6.329082844960601e-09,
+            "band_delta_matter": 6.323651113121397e-09,
+            "band_delta_without_K_gradient": 6.472116460681606e-12,
+            "band_delta_K_gradient_difference_stable_readback": 6.456167324017141e-18,
+            "band_delta_K_gradient_stable": 1.4731155154896221e-12
+          },
+          "corrector_before_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -9.977731908701765e-10,
+              "Aa_over_r_term": -1.4983400696549541e-09,
+              "K_gradient": 4.129528509277269e-13,
+              "metric_coupling": 6.655743375564973e-20,
+              "matter_scalar": 2.4955374163803395e-09,
+              "matter_fluid": -3.236437695492584e-14,
+              "M": -1.952556042679656e-13
+            },
+            "band_M": 1.3232400814055941e-12,
+            "band_delta": {
+              "Aa_prime": 2.517152200690427e-09,
+              "Aa_over_r_term": 3.807132034542808e-09,
+              "K_gradient": 1.073280549188202e-12,
+              "metric_coupling": 1.3084884090177708e-18,
+              "matter_scalar": 6.323251325563578e-09,
+              "matter_fluid": 8.237057642443249e-14,
+              "M": 6.132481799799383e-14
+            },
+            "band_delta_shear": 6.324280308053606e-09,
+            "band_delta_matter": 6.323168955068511e-09,
+            "band_delta_without_K_gradient": 1.1121731271309082e-12,
+            "band_delta_K_gradient_difference_stable_readback": 7.268254804361661e-18,
+            "band_delta_K_gradient_stable": 1.0732820772672149e-12
+          },
+          "corrector_after_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -9.977731908701765e-10,
+              "Aa_over_r_term": -1.4983400696549541e-09,
+              "K_gradient": 4.129528509277269e-13,
+              "metric_coupling": 6.655743375564973e-20,
+              "matter_scalar": 2.4955374163803395e-09,
+              "matter_fluid": -3.236437695492584e-14,
+              "M": -1.952556042679656e-13
+            },
+            "band_M": 1.3232400814055941e-12,
+            "band_delta": {
+              "Aa_prime": 2.517152200690427e-09,
+              "Aa_over_r_term": 3.807132034542808e-09,
+              "K_gradient": 1.073280549188202e-12,
+              "metric_coupling": 1.3084884090177708e-18,
+              "matter_scalar": 6.323251325563578e-09,
+              "matter_fluid": 8.237057642443249e-14,
+              "M": 6.132481799799383e-14
+            },
+            "band_delta_shear": 6.324280308053606e-09,
+            "band_delta_matter": 6.323168955068511e-09,
+            "band_delta_without_K_gradient": 1.1121731271309082e-12,
+            "band_delta_K_gradient_difference_stable_readback": 7.268254804361661e-18,
+            "band_delta_K_gradient_stable": 1.0732820772672149e-12
+          },
+          "accepted_end": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -9.977731908701765e-10,
+              "Aa_over_r_term": -1.4983400696549541e-09,
+              "K_gradient": 4.129528509277269e-13,
+              "metric_coupling": 6.655743375564973e-20,
+              "matter_scalar": 2.4955374163803395e-09,
+              "matter_fluid": -3.236437695492584e-14,
+              "M": -1.952556042679656e-13
+            },
+            "band_M": 1.3232400814055941e-12,
+            "band_delta": {
+              "Aa_prime": 2.517152200690427e-09,
+              "Aa_over_r_term": 3.807132034542808e-09,
+              "K_gradient": 1.073280549188202e-12,
+              "metric_coupling": 1.3084884090177708e-18,
+              "matter_scalar": 6.323251325563578e-09,
+              "matter_fluid": 8.237057642443249e-14,
+              "M": 6.132481799799383e-14
+            },
+            "band_delta_shear": 6.324280308053606e-09,
+            "band_delta_matter": 6.323168955068511e-09,
+            "band_delta_without_K_gradient": 1.1121731271309082e-12,
+            "band_delta_K_gradient_difference_stable_readback": 7.268254804361661e-18,
+            "band_delta_K_gradient_stable": 1.0732820772672149e-12
+          }
+        }
+      },
+      {
+        "t_start": 0.015750000000000004,
+        "t_end": 0.016500000000000004,
+        "stages": {
+          "accepted_start": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_M": 1.3232400814055941e-12,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 0.0,
+            "band_delta_without_K_gradient": 0.0,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "initial_lapse": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_M": 1.3232400814055941e-12,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 0.0,
+            "band_delta_without_K_gradient": 0.0,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "explicit_predictor": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 4.494190827819033e-20,
+              "matter_scalar": 2.495876933507214e-09,
+              "matter_fluid": -3.235786765438641e-14,
+              "M": 2.4958445756845144e-09
+            },
+            "band_M": 6.323070208240672e-09,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 8.774789449556817e-19,
+              "matter_scalar": 6.324074038466075e-09,
+              "matter_fluid": 8.235386070973846e-14,
+              "M": 6.323991685534079e-09
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 6.3239916846868585e-09,
+            "band_delta_without_K_gradient": 6.3239916855340495e-09,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "primary_before_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -9.97737145466423e-10,
+              "Aa_over_r_term": -1.5123691894101352e-09,
+              "K_gradient": 5.713215394590304e-13,
+              "metric_coupling": 7.051725797424455e-20,
+              "matter_scalar": 2.495876933507214e-09,
+              "matter_fluid": -3.235786765438641e-14,
+              "M": -1.369043762701329e-11
+            },
+            "band_M": 6.848884196636367e-12,
+            "band_delta": {
+              "Aa_prime": 2.5170811902468277e-09,
+              "Aa_over_r_term": 3.812518429250986e-09,
+              "K_gradient": 1.441721781042626e-12,
+              "metric_coupling": 1.3827229519758892e-18,
+              "matter_scalar": 6.324074038466075e-09,
+              "matter_fluid": 8.235386070973846e-14,
+              "M": 5.535668009365571e-12
+            },
+            "band_delta_shear": 6.329597613230416e-09,
+            "band_delta_matter": 6.3239916846868585e-09,
+            "band_delta_without_K_gradient": 6.688224927368381e-12,
+            "band_delta_K_gradient_difference_stable_readback": 7.230756111672792e-18,
+            "band_delta_K_gradient_stable": 1.4417240057369571e-12
+          },
+          "primary_after_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -9.97737145466423e-10,
+              "Aa_over_r_term": -1.5123691894101352e-09,
+              "K_gradient": 5.713215394590304e-13,
+              "metric_coupling": 7.051725797424455e-20,
+              "matter_scalar": 2.495876933507214e-09,
+              "matter_fluid": -3.235786765438641e-14,
+              "M": -1.369043762701329e-11
+            },
+            "band_M": 6.848884196636367e-12,
+            "band_delta": {
+              "Aa_prime": 2.5170811902468277e-09,
+              "Aa_over_r_term": 3.812518429250986e-09,
+              "K_gradient": 1.441721781042626e-12,
+              "metric_coupling": 1.3827229519758892e-18,
+              "matter_scalar": 6.324074038466075e-09,
+              "matter_fluid": 8.235386070973846e-14,
+              "M": 5.535668009365571e-12
+            },
+            "band_delta_shear": 6.329597613230416e-09,
+            "band_delta_matter": 6.3239916846868585e-09,
+            "band_delta_without_K_gradient": 6.688224927368381e-12,
+            "band_delta_K_gradient_difference_stable_readback": 7.230756111672792e-18,
+            "band_delta_K_gradient_stable": 1.4417240057369571e-12
+          },
+          "primary_after_lapse": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -9.97737145466423e-10,
+              "Aa_over_r_term": -1.5123691894101352e-09,
+              "K_gradient": 5.713215394590304e-13,
+              "metric_coupling": 7.051725797424455e-20,
+              "matter_scalar": 2.495876933507214e-09,
+              "matter_fluid": -3.235786765438641e-14,
+              "M": -1.369043762701329e-11
+            },
+            "band_M": 6.848884196636367e-12,
+            "band_delta": {
+              "Aa_prime": 2.5170811902468277e-09,
+              "Aa_over_r_term": 3.812518429250986e-09,
+              "K_gradient": 1.441721781042626e-12,
+              "metric_coupling": 1.3827229519758892e-18,
+              "matter_scalar": 6.324074038466075e-09,
+              "matter_fluid": 8.235386070973846e-14,
+              "M": 5.535668009365571e-12
+            },
+            "band_delta_shear": 6.329597613230416e-09,
+            "band_delta_matter": 6.3239916846868585e-09,
+            "band_delta_without_K_gradient": 6.688224927368381e-12,
+            "band_delta_K_gradient_difference_stable_readback": 7.230756111672792e-18,
+            "band_delta_K_gradient_stable": 1.4417240057369571e-12
+          },
+          "corrector_before_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -9.978326440945662e-10,
+              "Aa_over_r_term": -1.4984217946580908e-09,
+              "K_gradient": 4.1542386814444267e-13,
+              "metric_coupling": 7.089727964004368e-20,
+              "matter_scalar": 2.4956762029770733e-09,
+              "matter_fluid": -3.235194638819762e-14,
+              "M": -1.951637829451028e-13
+            },
+            "band_M": 1.3838659377923293e-12,
+            "band_delta": {
+              "Aa_prime": 2.5172758133675345e-09,
+              "Aa_over_r_term": 3.807333414319436e-09,
+              "K_gradient": 1.0776795846560962e-12,
+              "metric_coupling": 1.3941870371941685e-18,
+              "matter_scalar": 6.323572230079637e-09,
+              "matter_fluid": 8.233864257452129e-14,
+              "M": 6.105866415523367e-14
+            },
+            "band_delta_shear": 6.324605295556825e-09,
+            "band_delta_matter": 6.323489891518435e-09,
+            "band_delta_without_K_gradient": 1.1162135044487885e-12,
+            "band_delta_K_gradient_difference_stable_readback": 6.072857032821869e-18,
+            "band_delta_K_gradient_stable": 1.0776756920407719e-12
+          },
+          "corrector_after_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -9.978326440945662e-10,
+              "Aa_over_r_term": -1.4984217946580908e-09,
+              "K_gradient": 4.1542386814444267e-13,
+              "metric_coupling": 7.089727964004368e-20,
+              "matter_scalar": 2.4956762029770733e-09,
+              "matter_fluid": -3.235194638819762e-14,
+              "M": -1.951637829451028e-13
+            },
+            "band_M": 1.3838659377923293e-12,
+            "band_delta": {
+              "Aa_prime": 2.5172758133675345e-09,
+              "Aa_over_r_term": 3.807333414319436e-09,
+              "K_gradient": 1.0776795846560962e-12,
+              "metric_coupling": 1.3941870371941685e-18,
+              "matter_scalar": 6.323572230079637e-09,
+              "matter_fluid": 8.233864257452129e-14,
+              "M": 6.105866415523367e-14
+            },
+            "band_delta_shear": 6.324605295556825e-09,
+            "band_delta_matter": 6.323489891518435e-09,
+            "band_delta_without_K_gradient": 1.1162135044487885e-12,
+            "band_delta_K_gradient_difference_stable_readback": 6.072857032821869e-18,
+            "band_delta_K_gradient_stable": 1.0776756920407719e-12
+          },
+          "accepted_end": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -9.978326440945662e-10,
+              "Aa_over_r_term": -1.4984217946580908e-09,
+              "K_gradient": 4.1542386814444267e-13,
+              "metric_coupling": 7.089727964004368e-20,
+              "matter_scalar": 2.4956762029770733e-09,
+              "matter_fluid": -3.235194638819762e-14,
+              "M": -1.951637829451028e-13
+            },
+            "band_M": 1.3838659377923293e-12,
+            "band_delta": {
+              "Aa_prime": 2.5172758133675345e-09,
+              "Aa_over_r_term": 3.807333414319436e-09,
+              "K_gradient": 1.0776795846560962e-12,
+              "metric_coupling": 1.3941870371941685e-18,
+              "matter_scalar": 6.323572230079637e-09,
+              "matter_fluid": 8.233864257452129e-14,
+              "M": 6.105866415523367e-14
+            },
+            "band_delta_shear": 6.324605295556825e-09,
+            "band_delta_matter": 6.323489891518435e-09,
+            "band_delta_without_K_gradient": 1.1162135044487885e-12,
+            "band_delta_K_gradient_difference_stable_readback": 6.072857032821869e-18,
+            "band_delta_K_gradient_stable": 1.0776756920407719e-12
+          }
+        }
+      }
+    ]
+  },
+  "0.025": {
+    "dr": 0.025,
+    "dt": 0.000375,
+    "sha256": "0cc6df694e45ba9ff04353f3cdbf9f17b46cdbf5c6e5f1e04f0ba5b09a3bebae",
+    "observed_steps": [
+      {
+        "t_start": 0.0,
+        "t_end": 0.000375,
+        "stages": {
+          "accepted_start": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_M": 3.5957885529719884e-17,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 0.0,
+            "band_delta_without_K_gradient": 0.0,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "initial_lapse": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_M": 3.5957885529719884e-17,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 0.0,
+            "band_delta_without_K_gradient": 0.0,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "explicit_predictor": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 1.5379587953585101e-21,
+              "matter_scalar": 1.0358808305005085e-09,
+              "matter_fluid": -1.352799107241004e-14,
+              "M": 1.0358673025109721e-09
+            },
+            "band_M": 3.176656086860693e-09,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 5.125553299263313e-20,
+              "matter_scalar": 3.1766977445654628e-09,
+              "matter_fluid": 4.168414106310615e-14,
+              "M": 3.1766560605233e-09
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 3.176656060473918e-09,
+            "band_delta_without_K_gradient": 3.176656060523297e-09,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "primary_before_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -4.1414825266111915e-10,
+              "Aa_over_r_term": -6.228548520011361e-10,
+              "K_gradient": 1.3605628969065457e-13,
+              "metric_coupling": 1.6377798548659311e-21,
+              "matter_scalar": 1.0358808305005085e-09,
+              "matter_fluid": -1.352799107241004e-14,
+              "M": -9.997458614931997e-13
+            },
+            "band_M": 2.478471388157703e-13,
+            "band_delta": {
+              "Aa_prime": 1.2642494052856945e-09,
+              "Aa_over_r_term": 1.9127772575246073e-09,
+              "K_gradient": 4.0569322480239623e-13,
+              "metric_coupling": 5.484317325071936e-20,
+              "matter_scalar": 3.1766977445654628e-09,
+              "matter_fluid": 4.168414106310615e-14,
+              "M": 2.4784963510533534e-13
+            },
+            "band_delta_shear": 3.1770244916042562e-09,
+            "band_delta_matter": 3.176656060473918e-09,
+            "band_delta_without_K_gradient": 4.4287792326394034e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.6285369002891797e-17,
+            "band_delta_K_gradient_stable": 4.056833279587852e-13
+          },
+          "primary_after_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -4.1414825266111915e-10,
+              "Aa_over_r_term": -6.228548520011361e-10,
+              "K_gradient": 1.3605628969065457e-13,
+              "metric_coupling": 1.6377798548659311e-21,
+              "matter_scalar": 1.0358808305005085e-09,
+              "matter_fluid": -1.352799107241004e-14,
+              "M": -9.997458614931997e-13
+            },
+            "band_M": 2.478471388157703e-13,
+            "band_delta": {
+              "Aa_prime": 1.2642494052856945e-09,
+              "Aa_over_r_term": 1.9127772575246073e-09,
+              "K_gradient": 4.0569322480239623e-13,
+              "metric_coupling": 5.484317325071936e-20,
+              "matter_scalar": 3.1766977445654628e-09,
+              "matter_fluid": 4.168414106310615e-14,
+              "M": 2.4784963510533534e-13
+            },
+            "band_delta_shear": 3.1770244916042562e-09,
+            "band_delta_matter": 3.176656060473918e-09,
+            "band_delta_without_K_gradient": 4.4287792326394034e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.6285369002891797e-17,
+            "band_delta_K_gradient_stable": 4.056833279587852e-13
+          },
+          "primary_after_lapse": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -4.1414825266111915e-10,
+              "Aa_over_r_term": -6.228548520011361e-10,
+              "K_gradient": 1.3605628969065457e-13,
+              "metric_coupling": 1.6377798548659311e-21,
+              "matter_scalar": 1.0358808305005085e-09,
+              "matter_fluid": -1.352799107241004e-14,
+              "M": -9.997458614931997e-13
+            },
+            "band_M": 2.478471388157703e-13,
+            "band_delta": {
+              "Aa_prime": 1.2642494052856945e-09,
+              "Aa_over_r_term": 1.9127772575246073e-09,
+              "K_gradient": 4.0569322480239623e-13,
+              "metric_coupling": 5.484317325071936e-20,
+              "matter_scalar": 3.1766977445654628e-09,
+              "matter_fluid": 4.168414106310615e-14,
+              "M": 2.4784963510533534e-13
+            },
+            "band_delta_shear": 3.1770244916042562e-09,
+            "band_delta_matter": 3.176656060473918e-09,
+            "band_delta_without_K_gradient": 4.4287792326394034e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.6285369002891797e-17,
+            "band_delta_K_gradient_stable": 4.056833279587852e-13
+          },
+          "corrector_before_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -4.141640307746655e-10,
+              "Aa_over_r_term": -6.217596549449941e-10,
+              "K_gradient": 4.4663347094540466e-14,
+              "metric_coupling": 1.6652468359538044e-21,
+              "matter_scalar": 1.0358730309319303e-09,
+              "matter_fluid": -1.3528239971647495e-14,
+              "M": -1.9519678942354225e-14
+            },
+            "band_M": 1.2135043896970392e-14,
+            "band_delta": {
+              "Aa_prime": 1.2642889704056497e-09,
+              "Aa_over_r_term": 1.9124819386151623e-09,
+              "K_gradient": 1.262255413180105e-13,
+              "metric_coupling": 5.567624238820422e-20,
+              "matter_scalar": 3.17667578855914e-09,
+              "matter_fluid": 4.168485993947333e-14,
+              "M": 1.2157817368771597e-14
+            },
+            "band_delta_shear": 3.1767685583740357e-09,
+            "band_delta_matter": 3.176634103748684e-09,
+            "band_delta_without_K_gradient": 1.3462972128084814e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.4076963075745624e-17,
+            "band_delta_K_gradient_stable": 1.262219874280276e-13
+          },
+          "corrector_after_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -4.141640307746655e-10,
+              "Aa_over_r_term": -6.217596549449941e-10,
+              "K_gradient": 4.4663347094540466e-14,
+              "metric_coupling": 1.6652468359538044e-21,
+              "matter_scalar": 1.0358730309319303e-09,
+              "matter_fluid": -1.3528239971647495e-14,
+              "M": -1.9519678942354225e-14
+            },
+            "band_M": 1.2135043896970392e-14,
+            "band_delta": {
+              "Aa_prime": 1.2642889704056497e-09,
+              "Aa_over_r_term": 1.9124819386151623e-09,
+              "K_gradient": 1.262255413180105e-13,
+              "metric_coupling": 5.567624238820422e-20,
+              "matter_scalar": 3.17667578855914e-09,
+              "matter_fluid": 4.168485993947333e-14,
+              "M": 1.2157817368771597e-14
+            },
+            "band_delta_shear": 3.1767685583740357e-09,
+            "band_delta_matter": 3.176634103748684e-09,
+            "band_delta_without_K_gradient": 1.3462972128084814e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.4076963075745624e-17,
+            "band_delta_K_gradient_stable": 1.262219874280276e-13
+          },
+          "accepted_end": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -4.141640307746655e-10,
+              "Aa_over_r_term": -6.217596549449941e-10,
+              "K_gradient": 4.4663347094540466e-14,
+              "metric_coupling": 1.6652468359538044e-21,
+              "matter_scalar": 1.0358730309319303e-09,
+              "matter_fluid": -1.3528239971647495e-14,
+              "M": -1.9519678942354225e-14
+            },
+            "band_M": 1.2135043896970392e-14,
+            "band_delta": {
+              "Aa_prime": 1.2642889704056497e-09,
+              "Aa_over_r_term": 1.9124819386151623e-09,
+              "K_gradient": 1.262255413180105e-13,
+              "metric_coupling": 5.567624238820422e-20,
+              "matter_scalar": 3.17667578855914e-09,
+              "matter_fluid": 4.168485993947333e-14,
+              "M": 1.2157817368771597e-14
+            },
+            "band_delta_shear": 3.1767685583740357e-09,
+            "band_delta_matter": 3.176634103748684e-09,
+            "band_delta_without_K_gradient": 1.3462972128084814e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.4076963075745624e-17,
+            "band_delta_K_gradient_stable": 1.262219874280276e-13
+          }
+        }
+      },
+      {
+        "t_start": 0.007125000000000002,
+        "t_end": 0.007500000000000002,
+        "stages": {
+          "accepted_start": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_M": 2.361654557289658e-13,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 0.0,
+            "band_delta_without_K_gradient": 0.0,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "initial_lapse": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_M": 2.361654557289658e-13,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 0.0,
+            "band_delta_without_K_gradient": 0.0,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "explicit_predictor": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 5.410308182921389e-21,
+              "matter_scalar": 1.0383629073424925e-09,
+              "matter_fluid": -1.3522009047747605e-14,
+              "M": 1.0383493853388503e-09
+            },
+            "band_M": 3.1839785286700928e-09,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 1.8757306245497607e-19,
+              "matter_scalar": 3.1841681522418443e-09,
+              "matter_fluid": 4.1663968898031834e-14,
+              "M": 3.1841264885028574e-09
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 3.184126488322511e-09,
+            "band_delta_without_K_gradient": 3.1841264885028694e-09,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "primary_before_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -4.15141125249408e-10,
+              "Aa_over_r_term": -6.257425584144236e-10,
+              "K_gradient": 1.0330471046503963e-13,
+              "metric_coupling": 8.023271242323282e-21,
+              "matter_scalar": 1.0383629073424925e-09,
+              "matter_fluid": -1.3522009047747605e-14,
+              "M": -2.4309936119098143e-12
+            },
+            "band_M": 9.23549189516112e-13,
+            "band_delta": {
+              "Aa_prime": 1.2671745116143791e-09,
+              "Aa_over_r_term": 1.917728188114538e-09,
+              "K_gradient": 3.2695516354247354e-13,
+              "metric_coupling": 2.810347645355588e-19,
+              "matter_scalar": 3.1841681522418443e-09,
+              "matter_fluid": 4.1663968898031834e-14,
+              "M": 7.12102814983984e-13
+            },
+            "band_delta_shear": 3.1849007146617018e-09,
+            "band_delta_matter": 3.184126488322511e-09,
+            "band_delta_without_K_gradient": 9.524065501265849e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.608545047032384e-17,
+            "band_delta_K_gradient_stable": 3.269471037189707e-13
+          },
+          "primary_after_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -4.15141125249408e-10,
+              "Aa_over_r_term": -6.257425584144236e-10,
+              "K_gradient": 1.0330471046503963e-13,
+              "metric_coupling": 8.023271242323282e-21,
+              "matter_scalar": 1.0383629073424925e-09,
+              "matter_fluid": -1.3522009047747605e-14,
+              "M": -2.4309936119098143e-12
+            },
+            "band_M": 9.23549189516112e-13,
+            "band_delta": {
+              "Aa_prime": 1.2671745116143791e-09,
+              "Aa_over_r_term": 1.917728188114538e-09,
+              "K_gradient": 3.2695516354247354e-13,
+              "metric_coupling": 2.810347645355588e-19,
+              "matter_scalar": 3.1841681522418443e-09,
+              "matter_fluid": 4.1663968898031834e-14,
+              "M": 7.12102814983984e-13
+            },
+            "band_delta_shear": 3.1849007146617018e-09,
+            "band_delta_matter": 3.184126488322511e-09,
+            "band_delta_without_K_gradient": 9.524065501265849e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.608545047032384e-17,
+            "band_delta_K_gradient_stable": 3.269471037189707e-13
+          },
+          "primary_after_lapse": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -4.15141125249408e-10,
+              "Aa_over_r_term": -6.257425584144236e-10,
+              "K_gradient": 1.0330471046503963e-13,
+              "metric_coupling": 8.023271242323282e-21,
+              "matter_scalar": 1.0383629073424925e-09,
+              "matter_fluid": -1.3522009047747605e-14,
+              "M": -2.4309936119098143e-12
+            },
+            "band_M": 9.23549189516112e-13,
+            "band_delta": {
+              "Aa_prime": 1.2671745116143791e-09,
+              "Aa_over_r_term": 1.917728188114538e-09,
+              "K_gradient": 3.2695516354247354e-13,
+              "metric_coupling": 2.810347645355588e-19,
+              "matter_scalar": 3.1841681522418443e-09,
+              "matter_fluid": 4.1663968898031834e-14,
+              "M": 7.12102814983984e-13
+            },
+            "band_delta_shear": 3.1849007146617018e-09,
+            "band_delta_matter": 3.184126488322511e-09,
+            "band_delta_without_K_gradient": 9.524065501265849e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.608545047032384e-17,
+            "band_delta_K_gradient_stable": 3.269471037189707e-13
+          },
+          "corrector_before_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -4.151591399212023e-10,
+              "Aa_over_r_term": -6.232314610757931e-10,
+              "K_gradient": 3.743147767033795e-14,
+              "metric_coupling": 8.065557489507915e-21,
+              "matter_scalar": 1.0383399480807234e-09,
+              "matter_fluid": -1.3521593156230064e-14,
+              "M": -2.6743023698762577e-14
+            },
+            "band_M": 2.4935194335112593e-13,
+            "band_delta": {
+              "Aa_prime": 1.2672173098321306e-09,
+              "Aa_over_r_term": 1.916980688003445e-09,
+              "K_gradient": 1.311284732996474e-13,
+              "metric_coupling": 2.8282961551940477e-19,
+              "matter_scalar": 3.1840996566733533e-09,
+              "matter_fluid": 4.1662643659107707e-14,
+              "M": 1.4492240660609758e-14
+            },
+            "band_delta_shear": 3.184195620109631e-09,
+            "band_delta_matter": 3.184057994079223e-09,
+            "band_delta_without_K_gradient": 1.3803838510648902e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.1919489531628437e-17,
+            "band_delta_K_gradient_stable": 1.3113276397393437e-13
+          },
+          "corrector_after_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -4.151591399212023e-10,
+              "Aa_over_r_term": -6.232314610757931e-10,
+              "K_gradient": 3.743147767033795e-14,
+              "metric_coupling": 8.065557489507915e-21,
+              "matter_scalar": 1.0383399480807234e-09,
+              "matter_fluid": -1.3521593156230064e-14,
+              "M": -2.6743023698762577e-14
+            },
+            "band_M": 2.4935194335112593e-13,
+            "band_delta": {
+              "Aa_prime": 1.2672173098321306e-09,
+              "Aa_over_r_term": 1.916980688003445e-09,
+              "K_gradient": 1.311284732996474e-13,
+              "metric_coupling": 2.8282961551940477e-19,
+              "matter_scalar": 3.1840996566733533e-09,
+              "matter_fluid": 4.1662643659107707e-14,
+              "M": 1.4492240660609758e-14
+            },
+            "band_delta_shear": 3.184195620109631e-09,
+            "band_delta_matter": 3.184057994079223e-09,
+            "band_delta_without_K_gradient": 1.3803838510648902e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.1919489531628437e-17,
+            "band_delta_K_gradient_stable": 1.3113276397393437e-13
+          },
+          "accepted_end": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -4.151591399212023e-10,
+              "Aa_over_r_term": -6.232314610757931e-10,
+              "K_gradient": 3.743147767033795e-14,
+              "metric_coupling": 8.065557489507915e-21,
+              "matter_scalar": 1.0383399480807234e-09,
+              "matter_fluid": -1.3521593156230064e-14,
+              "M": -2.6743023698762577e-14
+            },
+            "band_M": 2.4935194335112593e-13,
+            "band_delta": {
+              "Aa_prime": 1.2672173098321306e-09,
+              "Aa_over_r_term": 1.916980688003445e-09,
+              "K_gradient": 1.311284732996474e-13,
+              "metric_coupling": 2.8282961551940477e-19,
+              "matter_scalar": 3.1840996566733533e-09,
+              "matter_fluid": 4.1662643659107707e-14,
+              "M": 1.4492240660609758e-14
+            },
+            "band_delta_shear": 3.184195620109631e-09,
+            "band_delta_matter": 3.184057994079223e-09,
+            "band_delta_without_K_gradient": 1.3803838510648902e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.1919489531628437e-17,
+            "band_delta_K_gradient_stable": 1.3113276397393437e-13
+          }
+        }
+      },
+      {
+        "t_start": 0.014625000000000008,
+        "t_end": 0.015000000000000008,
+        "stages": {
+          "accepted_start": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_M": 5.478673852391713e-13,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 0.0,
+            "band_delta_without_K_gradient": 0.0,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "initial_lapse": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_M": 5.478673852391713e-13,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 0.0,
+            "band_delta_without_K_gradient": 0.0,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "explicit_predictor": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 1.1850450741154841e-20,
+              "matter_scalar": 1.0397557404101068e-09,
+              "matter_fluid": -1.348843438826183e-14,
+              "M": 1.0397422519875755e-09
+            },
+            "band_M": 3.1879618236421938e-09,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 4.1514709945201974e-19,
+              "matter_scalar": 3.18827796154368e-09,
+              "matter_fluid": 4.1558842053836243e-14,
+              "M": 3.1882364031502444e-09
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 3.188236402751278e-09,
+            "band_delta_without_K_gradient": 3.18823640315025e-09,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "primary_before_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -4.156653017357552e-10,
+              "Aa_over_r_term": -6.280953659850541e-10,
+              "K_gradient": 8.295062167914219e-14,
+              "metric_coupling": 1.8317122504769448e-20,
+              "matter_scalar": 1.0397557404101068e-09,
+              "matter_fluid": -1.348843438826183e-14,
+              "M": -3.93546510508363e-12
+            },
+            "band_M": 1.7516387839841967e-12,
+            "band_delta": {
+              "Aa_prime": 1.2687565771367879e-09,
+              "Aa_over_r_term": 1.9206842638421158e-09,
+              "K_gradient": 2.4291730710927263e-13,
+              "metric_coupling": 6.45562863390362e-19,
+              "matter_scalar": 3.18827796154368e-09,
+              "matter_fluid": 4.1558842053836243e-14,
+              "M": 1.3009362976657922e-12
+            },
+            "band_delta_shear": 3.1894390244703854e-09,
+            "band_delta_matter": 3.188236402751278e-09,
+            "band_delta_without_K_gradient": 1.4896845790482175e-12,
+            "band_delta_K_gradient_difference_stable_readback": 1.6215307818263586e-17,
+            "band_delta_K_gradient_stable": 2.4291159549837253e-13
+          },
+          "primary_after_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -4.156653017357552e-10,
+              "Aa_over_r_term": -6.280953659850541e-10,
+              "K_gradient": 8.295062167914219e-14,
+              "metric_coupling": 1.8317122504769448e-20,
+              "matter_scalar": 1.0397557404101068e-09,
+              "matter_fluid": -1.348843438826183e-14,
+              "M": -3.93546510508363e-12
+            },
+            "band_M": 1.7516387839841967e-12,
+            "band_delta": {
+              "Aa_prime": 1.2687565771367879e-09,
+              "Aa_over_r_term": 1.9206842638421158e-09,
+              "K_gradient": 2.4291730710927263e-13,
+              "metric_coupling": 6.45562863390362e-19,
+              "matter_scalar": 3.18827796154368e-09,
+              "matter_fluid": 4.1558842053836243e-14,
+              "M": 1.3009362976657922e-12
+            },
+            "band_delta_shear": 3.1894390244703854e-09,
+            "band_delta_matter": 3.188236402751278e-09,
+            "band_delta_without_K_gradient": 1.4896845790482175e-12,
+            "band_delta_K_gradient_difference_stable_readback": 1.6215307818263586e-17,
+            "band_delta_K_gradient_stable": 2.4291159549837253e-13
+          },
+          "primary_after_lapse": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -4.156653017357552e-10,
+              "Aa_over_r_term": -6.280953659850541e-10,
+              "K_gradient": 8.295062167914219e-14,
+              "metric_coupling": 1.8317122504769448e-20,
+              "matter_scalar": 1.0397557404101068e-09,
+              "matter_fluid": -1.348843438826183e-14,
+              "M": -3.93546510508363e-12
+            },
+            "band_M": 1.7516387839841967e-12,
+            "band_delta": {
+              "Aa_prime": 1.2687565771367879e-09,
+              "Aa_over_r_term": 1.9206842638421158e-09,
+              "K_gradient": 2.4291730710927263e-13,
+              "metric_coupling": 6.45562863390362e-19,
+              "matter_scalar": 3.18827796154368e-09,
+              "matter_fluid": 4.1558842053836243e-14,
+              "M": 1.3009362976657922e-12
+            },
+            "band_delta_shear": 3.1894390244703854e-09,
+            "band_delta_matter": 3.188236402751278e-09,
+            "band_delta_without_K_gradient": 1.4896845790482175e-12,
+            "band_delta_K_gradient_difference_stable_readback": 1.6215307818263586e-17,
+            "band_delta_K_gradient_stable": 2.4291159549837253e-13
+          },
+          "corrector_before_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -4.1568732580938156e-10,
+              "Aa_over_r_term": -6.240782666037372e-10,
+              "K_gradient": 4.636723104223928e-14,
+              "metric_coupling": 1.8358001304290918e-20,
+              "matter_scalar": 1.039716706426408e-09,
+              "matter_fluid": -1.3487319283403402e-14,
+              "M": -1.6006056595075674e-14
+            },
+            "band_M": 5.636348074677326e-13,
+            "band_delta": {
+              "Aa_prime": 1.2688029601534678e-09,
+              "Aa_over_r_term": 1.9194606200152112e-09,
+              "K_gradient": 1.3455422568555767e-13,
+              "metric_coupling": 6.483514460981047e-19,
+              "matter_scalar": 3.188160118192148e-09,
+              "matter_fluid": 4.1555366208327105e-14,
+              "M": 1.9771591415591405e-14
+            },
+            "band_delta_shear": 3.18826116786689e-09,
+            "band_delta_matter": 3.1881185628755554e-09,
+            "band_delta_without_K_gradient": 1.4348508922262576e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.8975490263616404e-17,
+            "band_delta_K_gradient_stable": 1.345450590071632e-13
+          },
+          "corrector_after_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -4.1568732580938156e-10,
+              "Aa_over_r_term": -6.240782666037372e-10,
+              "K_gradient": 4.636723104223928e-14,
+              "metric_coupling": 1.8358001304290918e-20,
+              "matter_scalar": 1.039716706426408e-09,
+              "matter_fluid": -1.3487319283403402e-14,
+              "M": -1.6006056595075674e-14
+            },
+            "band_M": 5.636348074677326e-13,
+            "band_delta": {
+              "Aa_prime": 1.2688029601534678e-09,
+              "Aa_over_r_term": 1.9194606200152112e-09,
+              "K_gradient": 1.3455422568555767e-13,
+              "metric_coupling": 6.483514460981047e-19,
+              "matter_scalar": 3.188160118192148e-09,
+              "matter_fluid": 4.1555366208327105e-14,
+              "M": 1.9771591415591405e-14
+            },
+            "band_delta_shear": 3.18826116786689e-09,
+            "band_delta_matter": 3.1881185628755554e-09,
+            "band_delta_without_K_gradient": 1.4348508922262576e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.8975490263616404e-17,
+            "band_delta_K_gradient_stable": 1.345450590071632e-13
+          },
+          "accepted_end": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -4.1568732580938156e-10,
+              "Aa_over_r_term": -6.240782666037372e-10,
+              "K_gradient": 4.636723104223928e-14,
+              "metric_coupling": 1.8358001304290918e-20,
+              "matter_scalar": 1.039716706426408e-09,
+              "matter_fluid": -1.3487319283403402e-14,
+              "M": -1.6006056595075674e-14
+            },
+            "band_M": 5.636348074677326e-13,
+            "band_delta": {
+              "Aa_prime": 1.2688029601534678e-09,
+              "Aa_over_r_term": 1.9194606200152112e-09,
+              "K_gradient": 1.3455422568555767e-13,
+              "metric_coupling": 6.483514460981047e-19,
+              "matter_scalar": 3.188160118192148e-09,
+              "matter_fluid": 4.1555366208327105e-14,
+              "M": 1.9771591415591405e-14
+            },
+            "band_delta_shear": 3.18826116786689e-09,
+            "band_delta_matter": 3.1881185628755554e-09,
+            "band_delta_without_K_gradient": 1.4348508922262576e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.8975490263616404e-17,
+            "band_delta_K_gradient_stable": 1.345450590071632e-13
+          }
+        }
+      }
+    ]
+  },
+  "0.0125": {
+    "dr": 0.0125,
+    "dt": 0.000375,
+    "sha256": "8dfa5d5ce6aa0de27f7b2d43e3f0673755e37576e92e4ec8bf65989072bffcc6",
+    "observed_steps": [
+      {
+        "t_start": 0.0,
+        "t_end": 0.000375,
+        "stages": {
+          "accepted_start": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_M": 2.995610477899755e-17,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 0.0,
+            "band_delta_without_K_gradient": 0.0,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "initial_lapse": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_M": 2.995610477899755e-17,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 0.0,
+            "band_delta_without_K_gradient": 0.0,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "explicit_predictor": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 1.1235432993571528e-21,
+              "matter_scalar": 9.32357707870585e-10,
+              "matter_fluid": -1.217536018521893e-14,
+              "M": 9.32345532511524e-10
+            },
+            "band_M": 3.1826555833513152e-09,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 5.162306359578698e-20,
+              "matter_scalar": 3.182697323930841e-09,
+              "matter_fluid": 4.1765351583208584e-14,
+              "M": 3.182655558678778e-09
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 3.182655558629029e-09,
+            "band_delta_without_K_gradient": 3.1826555586787774e-09,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "primary_before_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -3.728506551678297e-10,
+              "Aa_over_r_term": -5.608378227478213e-10,
+              "K_gradient": 1.15139379512443e-13,
+              "metric_coupling": 1.196377049506545e-21,
+              "matter_scalar": 9.32357707870585e-10,
+              "matter_fluid": -1.217536018521893e-14,
+              "M": -1.2278060245409934e-12
+            },
+            "band_M": 2.465158513865399e-13,
+            "band_delta": {
+              "Aa_prime": 1.266566341512949e-09,
+              "Aa_over_r_term": 1.9163691519412434e-09,
+              "K_gradient": 3.1380503824008044e-13,
+              "metric_coupling": 5.523630287245046e-20,
+              "matter_scalar": 3.182697323930841e-09,
+              "matter_fluid": 4.1765351583208584e-14,
+              "M": 2.465209285261176e-13
+            },
+            "band_delta_shear": 3.1829333179381504e-09,
+            "band_delta_matter": 3.182655558629029e-09,
+            "band_delta_without_K_gradient": 3.7015157135774927e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.3500699597528125e-17,
+            "band_delta_K_gradient_stable": 3.1381445613648673e-13
+          },
+          "primary_after_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -3.728506551678297e-10,
+              "Aa_over_r_term": -5.608378227478213e-10,
+              "K_gradient": 1.15139379512443e-13,
+              "metric_coupling": 1.196377049506545e-21,
+              "matter_scalar": 9.32357707870585e-10,
+              "matter_fluid": -1.217536018521893e-14,
+              "M": -1.2278060245409934e-12
+            },
+            "band_M": 2.465158513865399e-13,
+            "band_delta": {
+              "Aa_prime": 1.266566341512949e-09,
+              "Aa_over_r_term": 1.9163691519412434e-09,
+              "K_gradient": 3.1380503824008044e-13,
+              "metric_coupling": 5.523630287245046e-20,
+              "matter_scalar": 3.182697323930841e-09,
+              "matter_fluid": 4.1765351583208584e-14,
+              "M": 2.465209285261176e-13
+            },
+            "band_delta_shear": 3.1829333179381504e-09,
+            "band_delta_matter": 3.182655558629029e-09,
+            "band_delta_without_K_gradient": 3.7015157135774927e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.3500699597528125e-17,
+            "band_delta_K_gradient_stable": 3.1381445613648673e-13
+          },
+          "primary_after_lapse": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -3.728506551678297e-10,
+              "Aa_over_r_term": -5.608378227478213e-10,
+              "K_gradient": 1.15139379512443e-13,
+              "metric_coupling": 1.196377049506545e-21,
+              "matter_scalar": 9.32357707870585e-10,
+              "matter_fluid": -1.217536018521893e-14,
+              "M": -1.2278060245409934e-12
+            },
+            "band_M": 2.465158513865399e-13,
+            "band_delta": {
+              "Aa_prime": 1.266566341512949e-09,
+              "Aa_over_r_term": 1.9163691519412434e-09,
+              "K_gradient": 3.1380503824008044e-13,
+              "metric_coupling": 5.523630287245046e-20,
+              "matter_scalar": 3.182697323930841e-09,
+              "matter_fluid": 4.1765351583208584e-14,
+              "M": 2.465209285261176e-13
+            },
+            "band_delta_shear": 3.1829333179381504e-09,
+            "band_delta_matter": 3.182655558629029e-09,
+            "band_delta_without_K_gradient": 3.7015157135774927e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.3500699597528125e-17,
+            "band_delta_K_gradient_stable": 3.1381445613648673e-13
+          },
+          "corrector_before_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -3.728601415537286e-10,
+              "Aa_over_r_term": -5.596309425755514e-10,
+              "K_gradient": 4.667562632667356e-14,
+              "metric_coupling": 1.2121335011434582e-21,
+              "matter_scalar": 9.323506782021206e-10,
+              "matter_fluid": -1.2175584560566743e-14,
+              "M": -1.0590588417973655e-13
+            },
+            "band_M": 1.9271420327483405e-14,
+            "band_delta": {
+              "Aa_prime": 1.2665978697535481e-09,
+              "Aa_over_r_term": 1.9160739898440324e-09,
+              "K_gradient": 2.953730597363406e-14,
+              "metric_coupling": 5.606524538831211e-20,
+              "matter_scalar": 3.1826753572754834e-09,
+              "matter_fluid": 4.176607211748976e-14,
+              "M": 1.9284023605000443e-14
+            },
+            "band_delta_shear": 3.1826694906151673e-09,
+            "band_delta_matter": 3.182633591253102e-09,
+            "band_delta_without_K_gradient": 4.09845107405338e-14,
+            "band_delta_K_gradient_difference_stable_readback": 1.540338921127426e-17,
+            "band_delta_K_gradient_stable": 2.953547694177774e-14
+          },
+          "corrector_after_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -3.728601415537286e-10,
+              "Aa_over_r_term": -5.596309425755514e-10,
+              "K_gradient": 4.667562632667356e-14,
+              "metric_coupling": 1.2121335011434582e-21,
+              "matter_scalar": 9.323506782021206e-10,
+              "matter_fluid": -1.2175584560566743e-14,
+              "M": -1.0590588417973655e-13
+            },
+            "band_M": 1.9271420327483405e-14,
+            "band_delta": {
+              "Aa_prime": 1.2665978697535481e-09,
+              "Aa_over_r_term": 1.9160739898440324e-09,
+              "K_gradient": 2.953730597363406e-14,
+              "metric_coupling": 5.606524538831211e-20,
+              "matter_scalar": 3.1826753572754834e-09,
+              "matter_fluid": 4.176607211748976e-14,
+              "M": 1.9284023605000443e-14
+            },
+            "band_delta_shear": 3.1826694906151673e-09,
+            "band_delta_matter": 3.182633591253102e-09,
+            "band_delta_without_K_gradient": 4.09845107405338e-14,
+            "band_delta_K_gradient_difference_stable_readback": 1.540338921127426e-17,
+            "band_delta_K_gradient_stable": 2.953547694177774e-14
+          },
+          "accepted_end": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -3.728601415537286e-10,
+              "Aa_over_r_term": -5.596309425755514e-10,
+              "K_gradient": 4.667562632667356e-14,
+              "metric_coupling": 1.2121335011434582e-21,
+              "matter_scalar": 9.323506782021206e-10,
+              "matter_fluid": -1.2175584560566743e-14,
+              "M": -1.0590588417973655e-13
+            },
+            "band_M": 1.9271420327483405e-14,
+            "band_delta": {
+              "Aa_prime": 1.2665978697535481e-09,
+              "Aa_over_r_term": 1.9160739898440324e-09,
+              "K_gradient": 2.953730597363406e-14,
+              "metric_coupling": 5.606524538831211e-20,
+              "matter_scalar": 3.1826753572754834e-09,
+              "matter_fluid": 4.176607211748976e-14,
+              "M": 1.9284023605000443e-14
+            },
+            "band_delta_shear": 3.1826694906151673e-09,
+            "band_delta_matter": 3.182633591253102e-09,
+            "band_delta_without_K_gradient": 4.09845107405338e-14,
+            "band_delta_K_gradient_difference_stable_readback": 1.540338921127426e-17,
+            "band_delta_K_gradient_stable": 2.953547694177774e-14
+          }
+        }
+      },
+      {
+        "t_start": 0.007125000000000002,
+        "t_end": 0.007500000000000002,
+        "stages": {
+          "accepted_start": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_M": 4.4750094069962513e-13,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 0.0,
+            "band_delta_without_K_gradient": 0.0,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "initial_lapse": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_M": 4.4750094069962513e-13,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 0.0,
+            "band_delta_without_K_gradient": 0.0,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "explicit_predictor": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 3.955675876083046e-21,
+              "matter_scalar": 9.345954388516425e-10,
+              "matter_fluid": -1.2169998237725317e-14,
+              "M": 9.345832688573705e-10
+            },
+            "band_M": 3.190019113370755e-09,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 1.8886985740019462e-19,
+              "matter_scalar": 3.190190248344212e-09,
+              "matter_fluid": 4.174515057155585e-14,
+              "M": 3.1901485034251156e-09
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 3.190148503243464e-09,
+            "band_delta_without_K_gradient": 3.1901485034251276e-09,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "primary_before_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -3.738472562180828e-10,
+              "Aa_over_r_term": -5.637067735641018e-10,
+              "K_gradient": 9.096118919774068e-14,
+              "metric_coupling": 5.8621196798329855e-21,
+              "matter_scalar": 9.345954388516425e-10,
+              "matter_fluid": -1.2169998237725317e-14,
+              "M": -2.87979973371219e-12
+            },
+            "band_M": 1.044185070775795e-12,
+            "band_delta": {
+              "Aa_prime": 1.2694856705628882e-09,
+              "Aa_over_r_term": 1.9213326788623297e-09,
+              "K_gradient": 2.2972609925331884e-13,
+              "metric_coupling": 2.829759590008969e-19,
+              "matter_scalar": 3.190190248344212e-09,
+              "matter_fluid": 4.174515057155585e-14,
+              "M": 7.124913119874141e-13
+            },
+            "band_delta_shear": 3.190816336566735e-09,
+            "band_delta_matter": 3.190148503243464e-09,
+            "band_delta_without_K_gradient": 8.732604259461576e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.5018824167132265e-17,
+            "band_delta_K_gradient_stable": 2.297345496151254e-13
+          },
+          "primary_after_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -3.738472562180828e-10,
+              "Aa_over_r_term": -5.637067735641018e-10,
+              "K_gradient": 9.096118919774068e-14,
+              "metric_coupling": 5.8621196798329855e-21,
+              "matter_scalar": 9.345954388516425e-10,
+              "matter_fluid": -1.2169998237725317e-14,
+              "M": -2.87979973371219e-12
+            },
+            "band_M": 1.044185070775795e-12,
+            "band_delta": {
+              "Aa_prime": 1.2694856705628882e-09,
+              "Aa_over_r_term": 1.9213326788623297e-09,
+              "K_gradient": 2.2972609925331884e-13,
+              "metric_coupling": 2.829759590008969e-19,
+              "matter_scalar": 3.190190248344212e-09,
+              "matter_fluid": 4.174515057155585e-14,
+              "M": 7.124913119874141e-13
+            },
+            "band_delta_shear": 3.190816336566735e-09,
+            "band_delta_matter": 3.190148503243464e-09,
+            "band_delta_without_K_gradient": 8.732604259461576e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.5018824167132265e-17,
+            "band_delta_K_gradient_stable": 2.297345496151254e-13
+          },
+          "primary_after_lapse": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -3.738472562180828e-10,
+              "Aa_over_r_term": -5.637067735641018e-10,
+              "K_gradient": 9.096118919774068e-14,
+              "metric_coupling": 5.8621196798329855e-21,
+              "matter_scalar": 9.345954388516425e-10,
+              "matter_fluid": -1.2169998237725317e-14,
+              "M": -2.87979973371219e-12
+            },
+            "band_M": 1.044185070775795e-12,
+            "band_delta": {
+              "Aa_prime": 1.2694856705628882e-09,
+              "Aa_over_r_term": 1.9213326788623297e-09,
+              "K_gradient": 2.2972609925331884e-13,
+              "metric_coupling": 2.829759590008969e-19,
+              "matter_scalar": 3.190190248344212e-09,
+              "matter_fluid": 4.174515057155585e-14,
+              "M": 7.124913119874141e-13
+            },
+            "band_delta_shear": 3.190816336566735e-09,
+            "band_delta_matter": 3.190148503243464e-09,
+            "band_delta_without_K_gradient": 8.732604259461576e-13,
+            "band_delta_K_gradient_difference_stable_readback": 1.5018824167132265e-17,
+            "band_delta_K_gradient_stable": 2.297345496151254e-13
+          },
+          "corrector_before_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -3.738654480156035e-10,
+              "Aa_over_r_term": -5.60890299150774e-10,
+              "K_gradient": 1.511136894555158e-14,
+              "metric_coupling": 5.896824588606412e-21,
+              "matter_scalar": 9.345747663624505e-10,
+              "matter_fluid": -1.2169624837342458e-14,
+              "M": -1.7803905392359893e-13
+            },
+            "band_M": 4.72935878629039e-13,
+            "band_delta": {
+              "Aa_prime": 1.2695300783834484e-09,
+              "Aa_over_r_term": 1.9205847607495606e-09,
+              "K_gradient": 3.5248434419269334e-14,
+              "metric_coupling": 2.848493313912581e-19,
+              "matter_scalar": 3.190121650550083e-09,
+              "matter_fluid": 4.1743823102457305e-14,
+              "M": 3.027238220161137e-14
+            },
+            "band_delta_shear": 3.1901124378490318e-09,
+            "band_delta_matter": 3.1900799067767675e-09,
+            "band_delta_without_K_gradient": 4.4258960030405347e-14,
+            "band_delta_K_gradient_difference_stable_readback": 1.5056902966890625e-17,
+            "band_delta_K_gradient_stable": 3.525113191255126e-14
+          },
+          "corrector_after_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -3.738654480156035e-10,
+              "Aa_over_r_term": -5.60890299150774e-10,
+              "K_gradient": 1.511136894555158e-14,
+              "metric_coupling": 5.896824588606412e-21,
+              "matter_scalar": 9.345747663624505e-10,
+              "matter_fluid": -1.2169624837342458e-14,
+              "M": -1.7803905392359893e-13
+            },
+            "band_M": 4.72935878629039e-13,
+            "band_delta": {
+              "Aa_prime": 1.2695300783834484e-09,
+              "Aa_over_r_term": 1.9205847607495606e-09,
+              "K_gradient": 3.5248434419269334e-14,
+              "metric_coupling": 2.848493313912581e-19,
+              "matter_scalar": 3.190121650550083e-09,
+              "matter_fluid": 4.1743823102457305e-14,
+              "M": 3.027238220161137e-14
+            },
+            "band_delta_shear": 3.1901124378490318e-09,
+            "band_delta_matter": 3.1900799067767675e-09,
+            "band_delta_without_K_gradient": 4.4258960030405347e-14,
+            "band_delta_K_gradient_difference_stable_readback": 1.5056902966890625e-17,
+            "band_delta_K_gradient_stable": 3.525113191255126e-14
+          },
+          "accepted_end": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -3.738654480156035e-10,
+              "Aa_over_r_term": -5.60890299150774e-10,
+              "K_gradient": 1.511136894555158e-14,
+              "metric_coupling": 5.896824588606412e-21,
+              "matter_scalar": 9.345747663624505e-10,
+              "matter_fluid": -1.2169624837342458e-14,
+              "M": -1.7803905392359893e-13
+            },
+            "band_M": 4.72935878629039e-13,
+            "band_delta": {
+              "Aa_prime": 1.2695300783834484e-09,
+              "Aa_over_r_term": 1.9205847607495606e-09,
+              "K_gradient": 3.5248434419269334e-14,
+              "metric_coupling": 2.848493313912581e-19,
+              "matter_scalar": 3.190121650550083e-09,
+              "matter_fluid": 4.1743823102457305e-14,
+              "M": 3.027238220161137e-14
+            },
+            "band_delta_shear": 3.1901124378490318e-09,
+            "band_delta_matter": 3.1900799067767675e-09,
+            "band_delta_without_K_gradient": 4.4258960030405347e-14,
+            "band_delta_K_gradient_difference_stable_readback": 1.5056902966890625e-17,
+            "band_delta_K_gradient_stable": 3.525113191255126e-14
+          }
+        }
+      },
+      {
+        "t_start": 0.014625000000000008,
+        "t_end": 0.015000000000000008,
+        "stages": {
+          "accepted_start": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_M": 7.830372437590598e-13,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 0.0,
+            "band_delta_without_K_gradient": 0.0,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "initial_lapse": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_M": 7.830372437590598e-13,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 0.0,
+              "matter_scalar": 0.0,
+              "matter_fluid": 0.0,
+              "M": 0.0
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 0.0,
+            "band_delta_without_K_gradient": 0.0,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "explicit_predictor": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 8.651451453401658e-21,
+              "matter_scalar": 9.358529087078597e-10,
+              "matter_fluid": -1.21398119648429e-14,
+              "M": 9.358407689045451e-10
+            },
+            "band_M": 3.194034939839716e-09,
+            "band_delta": {
+              "Aa_prime": 0.0,
+              "Aa_over_r_term": 0.0,
+              "K_gradient": 0.0,
+              "metric_coupling": 4.180650433081535e-19,
+              "matter_scalar": 3.194316167463671e-09,
+              "matter_fluid": 4.163983319495848e-14,
+              "M": 3.194274528082285e-09
+            },
+            "band_delta_shear": 0.0,
+            "band_delta_matter": 3.194274527680391e-09,
+            "band_delta_without_K_gradient": 3.194274528082285e-09,
+            "band_delta_K_gradient_difference_stable_readback": 0.0,
+            "band_delta_K_gradient_stable": 0.0
+          },
+          "primary_before_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -3.7431038976788196e-10,
+              "Aa_over_r_term": -5.660972136752852e-10,
+              "K_gradient": 1.9876076093452665e-14,
+              "metric_coupling": 1.3373314810936717e-20,
+              "matter_scalar": 9.358529087078597e-10,
+              "matter_fluid": -1.21398119648429e-14,
+              "M": -4.546958457815274e-12
+            },
+            "band_M": 1.911447210293635e-12,
+            "band_delta": {
+              "Aa_prime": 1.2710917151232738e-09,
+              "Aa_over_r_term": 1.9242933101364172e-09,
+              "K_gradient": 1.4546171321065896e-13,
+              "metric_coupling": 6.500715557231126e-19,
+              "matter_scalar": 3.194316167463671e-09,
+              "matter_fluid": 4.163983319495848e-14,
+              "M": 1.303558667065969e-12
+            },
+            "band_delta_shear": 3.1953832191431146e-09,
+            "band_delta_matter": 3.194274527680391e-09,
+            "band_delta_without_K_gradient": 1.4135936552734157e-12,
+            "band_delta_K_gradient_difference_stable_readback": 1.0367035073431643e-17,
+            "band_delta_K_gradient_stable": 1.4545915734224826e-13
+          },
+          "primary_after_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -3.7431038976788196e-10,
+              "Aa_over_r_term": -5.660972136752852e-10,
+              "K_gradient": 1.9876076093452665e-14,
+              "metric_coupling": 1.3373314810936717e-20,
+              "matter_scalar": 9.358529087078597e-10,
+              "matter_fluid": -1.21398119648429e-14,
+              "M": -4.546958457815274e-12
+            },
+            "band_M": 1.911447210293635e-12,
+            "band_delta": {
+              "Aa_prime": 1.2710917151232738e-09,
+              "Aa_over_r_term": 1.9242933101364172e-09,
+              "K_gradient": 1.4546171321065896e-13,
+              "metric_coupling": 6.500715557231126e-19,
+              "matter_scalar": 3.194316167463671e-09,
+              "matter_fluid": 4.163983319495848e-14,
+              "M": 1.303558667065969e-12
+            },
+            "band_delta_shear": 3.1953832191431146e-09,
+            "band_delta_matter": 3.194274527680391e-09,
+            "band_delta_without_K_gradient": 1.4135936552734157e-12,
+            "band_delta_K_gradient_difference_stable_readback": 1.0367035073431643e-17,
+            "band_delta_K_gradient_stable": 1.4545915734224826e-13
+          },
+          "primary_after_lapse": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -3.7431038976788196e-10,
+              "Aa_over_r_term": -5.660972136752852e-10,
+              "K_gradient": 1.9876076093452665e-14,
+              "metric_coupling": 1.3373314810936717e-20,
+              "matter_scalar": 9.358529087078597e-10,
+              "matter_fluid": -1.21398119648429e-14,
+              "M": -4.546958457815274e-12
+            },
+            "band_M": 1.911447210293635e-12,
+            "band_delta": {
+              "Aa_prime": 1.2710917151232738e-09,
+              "Aa_over_r_term": 1.9242933101364172e-09,
+              "K_gradient": 1.4546171321065896e-13,
+              "metric_coupling": 6.500715557231126e-19,
+              "matter_scalar": 3.194316167463671e-09,
+              "matter_fluid": 4.163983319495848e-14,
+              "M": 1.303558667065969e-12
+            },
+            "band_delta_shear": 3.1953832191431146e-09,
+            "band_delta_matter": 3.194274527680391e-09,
+            "band_delta_without_K_gradient": 1.4135936552734157e-12,
+            "band_delta_K_gradient_difference_stable_readback": 1.0367035073431643e-17,
+            "band_delta_K_gradient_stable": 1.4545915734224826e-13
+          },
+          "corrector_before_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -3.743113112531029e-10,
+              "Aa_over_r_term": -5.6163847530547e-10,
+              "K_gradient": -2.8249008071385508e-14,
+              "metric_coupling": 1.3395008985770894e-20,
+              "matter_scalar": 9.358177679469439e-10,
+              "matter_fluid": -1.2138809242196118e-14,
+              "M": -1.7240641555529057e-13
+            },
+            "band_M": 8.121144672997726e-13,
+            "band_delta": {
+              "Aa_prime": 1.271139416476122e-09,
+              "Aa_over_r_term": 1.923070057330221e-09,
+              "K_gradient": 3.6451122487335603e-14,
+              "metric_coupling": 6.528717260425714e-19,
+              "matter_scalar": 3.194198123791491e-09,
+              "matter_fluid": 4.16363511302889e-14,
+              "M": 5.2162390988801596e-14
+            },
+            "band_delta_shear": 3.1942070741725123e-09,
+            "band_delta_matter": 3.194156487490239e-09,
+            "band_delta_without_K_gradient": 7.650603578644117e-14,
+            "band_delta_K_gradient_difference_stable_readback": 1.7430053952554308e-17,
+            "band_delta_K_gradient_stable": 3.645831265475155e-14
+          },
+          "corrector_after_boundary": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -3.743113112531029e-10,
+              "Aa_over_r_term": -5.6163847530547e-10,
+              "K_gradient": -2.8249008071385508e-14,
+              "metric_coupling": 1.3395008985770894e-20,
+              "matter_scalar": 9.358177679469439e-10,
+              "matter_fluid": -1.2138809242196118e-14,
+              "M": -1.7240641555529057e-13
+            },
+            "band_M": 8.121144672997726e-13,
+            "band_delta": {
+              "Aa_prime": 1.271139416476122e-09,
+              "Aa_over_r_term": 1.923070057330221e-09,
+              "K_gradient": 3.6451122487335603e-14,
+              "metric_coupling": 6.528717260425714e-19,
+              "matter_scalar": 3.194198123791491e-09,
+              "matter_fluid": 4.16363511302889e-14,
+              "M": 5.2162390988801596e-14
+            },
+            "band_delta_shear": 3.1942070741725123e-09,
+            "band_delta_matter": 3.194156487490239e-09,
+            "band_delta_without_K_gradient": 7.650603578644117e-14,
+            "band_delta_K_gradient_difference_stable_readback": 1.7430053952554308e-17,
+            "band_delta_K_gradient_stable": 3.645831265475155e-14
+          },
+          "accepted_end": {
+            "signed_delta_at_band_left_native_cell": {
+              "Aa_prime": -3.743113112531029e-10,
+              "Aa_over_r_term": -5.6163847530547e-10,
+              "K_gradient": -2.8249008071385508e-14,
+              "metric_coupling": 1.3395008985770894e-20,
+              "matter_scalar": 9.358177679469439e-10,
+              "matter_fluid": -1.2138809242196118e-14,
+              "M": -1.7240641555529057e-13
+            },
+            "band_M": 8.121144672997726e-13,
+            "band_delta": {
+              "Aa_prime": 1.271139416476122e-09,
+              "Aa_over_r_term": 1.923070057330221e-09,
+              "K_gradient": 3.6451122487335603e-14,
+              "metric_coupling": 6.528717260425714e-19,
+              "matter_scalar": 3.194198123791491e-09,
+              "matter_fluid": 4.16363511302889e-14,
+              "M": 5.2162390988801596e-14
+            },
+            "band_delta_shear": 3.1942070741725123e-09,
+            "band_delta_matter": 3.194156487490239e-09,
+            "band_delta_without_K_gradient": 7.650603578644117e-14,
+            "band_delta_K_gradient_difference_stable_readback": 1.7430053952554308e-17,
+            "band_delta_K_gradient_stable": 3.645831265475155e-14
+          }
+        }
+      }
+    ]
+  }
+}
