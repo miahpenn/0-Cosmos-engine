@@ -142,6 +142,25 @@ def ps_rhs(g, s, S, P):
     return out
 
 
+def s_construction(S_stored, meta):
+    """A23 gate 3b: each stored S sample against the exact Gaussian at the exact r_i, within (5 r_i^2 + 3) u relative."""
+    st = np.asarray(S_stored, dtype=float)
+    n, rm = len(st), mp.mpf(repr(float(meta["r_max"])))
+    amp, sig = mp.mpf(repr(float(meta["amp"]))), mp.mpf(repr(float(meta.get("sigma", 1.0))))
+    ratio, rel_u = [], []
+    for i in range(n):
+        r = (mp.mpf(i) + mp.mpf(1) / 2) * rm / n
+        ex = amp * mp.exp(-(r / sig) ** 2)
+        err = abs(mp.mpf(float(st[i])) - ex) / ex
+        c = 5 * r * r + 3
+        rel_u.append(float(err / M.U))
+        ratio.append(float(err / (c * M.U)))
+    ratio = np.array(ratio)
+    return {"gate": "A23 3b", "worst_ratio": float(np.max(ratio)), "cell": int(np.argmax(ratio)),
+            "pass": bool(np.max(ratio) <= 1.0), "max_rel_err_in_u": float(max(rel_u)),
+            "cell_max_rel_err": int(np.argmax(rel_u)), "grid": "direct: (i + 1/2) * (r_max / n)"}
+
+
 def t2_checks(z, g, s, s_in, m, n_int, meta):
     """A2 section 2, Test 2 (with A13 section 1 for the a, b, X, Aa, K, Lambda RHS, done in input_checks)."""
     out = {}
@@ -174,7 +193,14 @@ def t2_checks(z, g, s, s_in, m, n_int, meta):
     # (ii) the stored binary64 against 60 digits on the exact Gaussian samples (analytic (Laplacian - 1) plus the
     #      stencil truncation, predicted in 60 digits), within the evaluation bound plus the input rounding of S.
     S, P = M.arr(z["s_S"]), M.arr(z["s_PS"])
+    # A23 gate 3a (evaluation): engine P_S RHS against 60 digits of the engine's own formula on the stored binary64 S
+    # and the same stored X, alpha (solved), a, b, within gamma_n Sum|s_k| per cell (the A13 section 1 compare).
     out["PS_rhs_vs_60_digits"] = compare(z["R_s_PS"], ps_rhs(g, s, S, P), n_int)
+    out["PS_rhs_vs_60_digits"]["gate"] = "A23 3a"
+    # A23 gate 3b (construction): |S_i - S_exact(r_i)| <= c_i u |S_exact(r_i)|, c_i = 5 r_i^2 + 3, for the grid built
+    # directly (SphericalCellGrid.centers = (arange(n) + 0.5) * dr, dr = r_max / n; read 25 Nov). S_exact uses the exact
+    # r_i = (i + 1/2) r_max / n and the exact decimal amp; per cell, all n cells.
+    out["S_construction"] = s_construction(z["s_S"], meta)
     amp, sig = mp.mpf(meta["amp"]), mp.mpf(meta.get("sigma", 1.0))
     Sx = [M.E(amp * mp.exp(-(x.v / sig) ** 2)) for x in g.r]
     px = ps_rhs(g, s, Sx, P)
@@ -194,13 +220,14 @@ def t2_checks(z, g, s, s_in, m, n_int, meta):
     trunc = np.array([float(px[i].v - an[i]) for i in range(g.n)])
     meas = np.array([float(mp.mpf(float(st[i])) - an[i]) for i in range(g.n)])
     out["PS_rhs_vs_analytic"] = {
-        "worst_ratio_to_bound": float(np.max(dif / np.maximum(bnd, 1e-300))), "cell": int(np.argmax(dif / np.maximum(bnd, 1e-300))),
-        "pass": bool(np.all(dif <= bnd)),
+        "reading_only": True,
+        "worst_ratio_to_A22_bound": float(np.max(dif / np.maximum(bnd, 1e-300))), "cell": int(np.argmax(dif / np.maximum(bnd, 1e-300))),
+        "within_A22_bound": bool(np.all(dif <= bnd)),
         "stored_minus_analytic_fixed_points": fixed_points(meas[:n_int], float(g.dr.v)),
         "predicted_truncation_fixed_points": fixed_points(trunc[:n_int], float(g.dr.v)),
         "max_abs_predicted_truncation": float(np.max(np.abs(trunc[:n_int]))),
-        "note": "A22 item 3: gate is |stored - 60 digits on exact samples| <= (gamma_n + u) Sum|s_k|, on the same stored "
-                "X, alpha (solved), a, b as the engine call; the *_analytic and truncation entries are readings"}
+        "note": "A23: the exact-sample compare (A22 item 3 form) and the analytic difference are readings only; "
+                "the gates are A23 3a (PS_rhs_vs_60_digits) and 3b (S_construction)"}
     return out
 
 
