@@ -40,6 +40,20 @@ is not stored, and the exponent bound fails anyway (p + 2SE is 4.2 and 3.9, abov
 Reading only, dr .05 (r_max 8): H0 p 3.6 ± 0.7, gamma 3.4 ± 1.1, rho 1.03 / 1.52; M0 p 2.5 ± 0.4, gamma 2.7 ± 0.3,
 rho 0.56 / 0.42. Both OPEN by the same rule.
 
+## dr .05 arm, same cells (second ask under the same go, Nov 25 21:50 UTC)
+
+Arm `1a_dr05_dt0_r8`: n 160, r_max 8, dt 3.75e-4 (the same dt as the dr .025 arm, which has n 320, r_max 8).
+Values are in `readback.json` under `context_reading_only`.
+
+| t | \|H\| cells 0-2 at .05 | .025 / .05 | \|M\| cells 0-2 at .05 | .025 / .05 |
+|---|---|---|---|---|
+| 0.3 | 3.1e-13, 1.7e-13, 1.4e-13 | 290, 200, 110 | 2.0e-12, 7.3e-13, 6.6e-15 | 23, 67, 1300 |
+| 1.5 | 1.2e-10, 4.1e-11, 3.4e-11 | 320, 190, 54 | 3.1e-13, 1.2e-11, 1.8e-12 | 36000, 510, 53 |
+| 2.1 | 1.3e-10, 1.1e-10, 1.5e-11 | 1000, 160, 58 | 1.6e-11, 3.2e-11, 6.1e-12 | 900, 170, 540 |
+
+Reading (no gate): halving dr at fixed dt makes the centre values 23 to 36000 times larger, mostly 50 to 1000.
+That is far above the 4x of eps/dr² and nowhere near the 1x of a dr-independent effect.
+
 ## What would settle it
 
 The missing rows need the engine: about 100 steps of the 1a dr .025 arm (n 320, about 0.27 s/step, under a minute)
