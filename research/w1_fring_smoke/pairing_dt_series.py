@@ -1,8 +1,8 @@
 """W1 PIRK corrector pairing: fixed-grid timestep refinement series (research only).
 
 Design DESIGN-W1-PIRK-pairing-dt-refinement-Nov25-2026 (Drive 1MZrugyHkzJWhH3OeTl_VoW9LJjwaZEv7FAS3iRsw8GI) with
-Amendment 1 (1u-9OTudwOuI74yEXIs8rjxIcYZrVYCwCA4F-nxjYVAo) and Amendment 2 (1sgCtsP0--_qMa-fsjUDf8xF1_9ylNyAO1uIh0JVk2Y8).
-Code only until Jeremiah's go. Nothing here changes the engine; arms run production arithmetic and production _d2.
+Amendment 1 (1u-9OTudwOuI74yEXIs8rjxIcYZrVYCwCA4F-nxjYVAo), Amendment 2 (1sgCtsP0--_qMa-fsjUDf8xF1_9ylNyAO1uIh0JVk2Y8) and
+Amendment 3 (1AWx0eRcRlHsxqcyeo10-nAAeiUC86XY-HMfyo_qt-7c). Code only until Jeremiah's go. Nothing here changes the engine; arms run production arithmetic and production _d2.
 
   python -m research.w1_fring_smoke.pairing_dt_series runs OUT            command lines, longest first (for xargs -P 4)
   python -m research.w1_fring_smoke.pairing_dt_series run CASE ARM LEVEL OUT [--floor]
@@ -226,6 +226,18 @@ def ratio_verdicts(ps, high="SECOND_ORDER", low="FIRST_ORDER_SIGNAL"):
     return "UNDETERMINED"
 
 
+def blow_up(rec2, rec1):
+    """A3.4: at each matched time (2dt0 step k = dt0 step 2k), any band max |F| above 2x the dt0 value is a blow-up.
+    An error or non-finite value (a failed run) also counts; a missing run cannot be checked and reads as blown up."""
+    if rec2 is None or rec1 is None or rec2.get("status") != "complete" or rec1.get("status") != "complete":
+        return {"blown_up": True, "reason": "2dt0 or dt0 run failed or missing"}
+    h2, h1 = rec2["band_max_abs_by_step"], rec1["band_max_abs_by_step"]
+    worst = {f: max(h2[k][f] / h1[2 * k + 1][f] if h1[2 * k + 1][f] > 0 else math.inf for k in range(len(h2)))
+             for f in FIELDS}
+    exceeded = sorted(f for f, x in worst.items() if x > 2.0)
+    return {"blown_up": bool(exceeded), "worst_ratio_to_dt0": worst, "exceeded": exceeded}
+
+
 def score_case(out, case):
     res = {"input_checks": {}, "C2": {}, "floors": {}, "G1": {}, "G2": {}, "readings": {}}
     data, recs = {}, {}
@@ -272,6 +284,8 @@ def score_case(out, case):
     use_2dt0 = c2["2dt0/dt0"]["pass"] and ok["2dt0"]                       # A2.3, A2.4
     res["input_checks"]["C2_asymptotic"] = asymptotic
     res["input_checks"]["C2_2dt0_counts"] = use_2dt0
+    blown = {arm: blow_up(recs[(arm, "2dt0", False)], recs[(arm, "dt0", False)]) for arm in ARMS}   # A3.4
+    res["input_checks"]["blow_up_2dt0"] = blown
     for field in FIELDS:
         fl = {}
         for arm in ARMS:
@@ -288,11 +302,11 @@ def score_case(out, case):
                         "note": "2dt0 run failed or missing (A2.4)" if "2dt0" in levels else "missing run"}
             nn, nd = norm(r, num), norm(r, den)
             threshold = VALID * max(fl[(a, l)] for a in floor_arms for l in levels)
-            pre = "2dt0" in levels and not use_2dt0
+            pre = "2dt0" in levels and (not use_2dt0 or any(blown[a]["blown_up"] for a in floor_arms))
             counted = nn >= threshold and nd >= threshold and asymptotic and not pre
             return {"ratio": label, "num": nn, "den": nd, "p": math.log2(nn / nd) if nd > 0 and nn > 0 else None,
                     "G0_threshold": threshold, "counted": bool(counted and nd > 0 and nn > 0),
-                    **({"note": "2dt0 pre-asymptotic or failed (A2.3, A2.4)"} if pre else {})}
+                    **({"note": "2dt0 pre-asymptotic, failed or blown up (A2.3, A2.4, A3.4)"} if pre else {})}
 
         def F(arm, lv):
             d = data[(arm, lv, False)]

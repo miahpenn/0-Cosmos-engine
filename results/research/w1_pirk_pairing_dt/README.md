@@ -22,4 +22,6 @@ When the go is given (engine venv active, Python 3.12/3.13 with the pinned packa
 Input checks: C0 (P at dt0, step 1 reproduces the archived stages and end digest), C1 (step-1 primary predictor of P
 and Q bitwise, every field), C2 (log2 of the band gap ratio max|X_pred - X_expl| per level pair >= 1.7; 2dt0 ratios count
 only if the 2dt0/dt0 pair passes, A2.3), C3 (Q: recomputed primary L2 equals the substituted value bitwise on every step;
-one failure stops the run). Gates G0, G1, G2 as in the design; a failed or non-finite 2dt0 run reads UNDETERMINED (A2.4).
+one failure stops the run). Gates G0, G1, G2 as in the design; a failed, non-finite or blown-up 2dt0 run reads UNDETERMINED (A2.4). Blow-up (Amendment 3,
+Drive 1AWx0eRcRlHsxqcyeo10-nAAeiUC86XY-HMfyo_qt-7c, A3.4): at any matched time, band max |M|, |Aa| or |K| above 2x the
+same arm and grid at dt0.
