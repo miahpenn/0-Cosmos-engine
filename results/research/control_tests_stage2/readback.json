@@ -1,0 +1,3565 @@
+{
+ "inputs": {
+  "T2_amp1e-05_dr0.025_r8": {
+   "rhs": {
+    "a": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    },
+    "b": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    },
+    "X": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    },
+    "Aa": {
+     "worst_ratio": 0.0014492464064993133,
+     "cell": 255,
+     "pass": true,
+     "edge_ratio": [
+      0.00011144607923185104,
+      2.378256240351286e-05
+     ],
+     "independence": {
+      "max_diff": 4.439733352592619e-13,
+      "limit": 4.3725517005214736e-09,
+      "pass": true
+     }
+    },
+    "K": {
+     "worst_ratio": 0.007927052771716781,
+     "cell": 266,
+     "pass": true,
+     "edge_ratio": [
+      0.0016249892275980325,
+      2.3435614086801458e-05
+     ],
+     "independence": {
+      "max_diff": 3.552713678380613e-13,
+      "limit": 6.024810276292204e-10,
+      "pass": true
+     }
+    },
+    "Lambda": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    }
+   },
+   "B5_H": {
+    "worst_ratio": 0.004691835613465378,
+    "cell": 23,
+    "pass": true,
+    "edge_ratio": [
+     0.00037549618689211415,
+     0.00011613245277726015
+    ],
+    "independence": {
+     "max_diff": 1.3669128864667916e-12,
+     "limit": 4.963437064080055e-09,
+     "pass": true
+    }
+   },
+   "B1": {
+    "H": [
+     -1.5800380279986084e-12,
+     4.113914011182161e-13,
+     3.951088718774869e-13,
+     -1.2570256976380294e-13,
+     3.150721596204529e-14
+    ],
+    "16pi_rho_dust": [
+     2.514059150491735e-09,
+     2.54473268287373e-09,
+     2.59159268042447e-09,
+     2.656504747356802e-09,
+     2.7336126856950996e-09
+    ]
+   },
+   "B4": {
+    "M0": 0.0,
+    "limit": 0.0,
+    "pass": true
+   },
+   "B3_ii_kdot": {
+    "stored": -1.140262773952465e-12,
+    "mp": -1.1535387020443949e-12,
+    "bound": 8.766990193319605e-10,
+    "pass": true
+   },
+   "newton_residual": {
+    "literal_worst_ratio": 104651484624969.81,
+    "literal_cell": 314,
+    "literal_pass": false,
+    "literal_cells_failing": 318,
+    "B5_form_worst_ratio": 0.011326526765529091,
+    "B5_form_pass": true,
+    "pass": true,
+    "gate": "B5 form (A22 item 2); literal_* supplementary",
+    "max_abs_H_non_edge": 2.41662019545632e-12,
+    "max_abs_H60_at_stored_X": 1.6269727471141997e-12,
+    "newton_log": [
+     {
+      "iter": 0,
+      "max_abs_H_non_edge": 3.047809504591722e-09,
+      "norm_row": 0.0
+     },
+     {
+      "iter": 1,
+      "max_abs_H_non_edge": 2.41662019545632e-12,
+      "norm_row": -8.631984016357195e-16
+     },
+     {
+      "iter": 2,
+      "max_abs_H_non_edge": 3.242633918700748e-12,
+      "norm_row": 5.884182030565028e-16
+     }
+    ],
+    "note": "A22 item 2: B5 form is the gate"
+   },
+   "M0_bitwise": {
+    "nonzero_cells": 0,
+    "pass": true
+   },
+   "S_rhs_pi_term": {
+    "equal_bitwise": true,
+    "max_abs": 0.0,
+    "pass": true
+   },
+   "PS_rhs_vs_60_digits": {
+    "worst_ratio": 0.009514999961602535,
+    "cell": 138,
+    "pass": true,
+    "edge_ratio": [
+     0.0009400582951791754,
+     0.00022293792769225346
+    ],
+    "independence": {
+     "max_diff": 4.4994390158148434e-18,
+     "limit": 6.818483901703919e-15,
+     "pass": true
+    },
+    "gate": "A23 3a"
+   },
+   "S_construction": {
+    "gate": "A23 3b",
+    "worst_ratio": 0.5936200373782335,
+    "cell": 239,
+    "pass": true,
+    "max_rel_err_in_u": 132.7645161969012,
+    "cell_max_rel_err": 319,
+    "grid": "direct: (i + 1/2) * (r_max / n)"
+   },
+   "PS_rhs_vs_analytic": {
+    "reading_only": true,
+    "worst_ratio_to_A22_bound": 0.7008898345216952,
+    "cell": 296,
+    "within_A22_bound": true,
+    "stored_minus_analytic_fixed_points": [
+     3.6404674388014245e-11,
+     3.572901412319317e-11,
+     3.4663262803275114e-11,
+     3.310956863899356e-11,
+     3.111726260444888e-11
+    ],
+    "predicted_truncation_fixed_points": [
+     3.6404669756161204e-11,
+     3.572901587351083e-11,
+     3.4663260462689894e-11,
+     3.310956614521686e-11,
+     3.11172652274805e-11
+    ],
+    "max_abs_predicted_truncation": 3.6404669756161204e-11,
+    "note": "A23: the exact-sample compare (A22 item 3 form) and the analytic difference are readings only; the gates are A23 3a (PS_rhs_vs_60_digits) and 3b (S_construction)"
+   }
+  },
+  "T2_amp1e-05_dr0.05_r8": {
+   "rhs": {
+    "a": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    },
+    "b": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    },
+    "X": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    },
+    "Aa": {
+     "worst_ratio": 0.0012226455642752767,
+     "cell": 154,
+     "pass": true,
+     "edge_ratio": [
+      8.471170087155718e-05,
+      0.00014466054270276938
+     ],
+     "independence": {
+      "max_diff": 9.372022914085954e-14,
+      "limit": 1.093137925130563e-09,
+      "pass": true
+     }
+    },
+    "K": {
+     "worst_ratio": 0.007269403675085366,
+     "cell": 147,
+     "pass": true,
+     "edge_ratio": [
+      0.00021832181947139496,
+      0.001002681337177283
+     ],
+     "independence": {
+      "max_diff": 8.22622392857046e-14,
+      "limit": 1.5062025690729968e-10,
+      "pass": true
+     }
+    },
+    "Lambda": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    }
+   },
+   "B5_H": {
+    "worst_ratio": 0.004124980380465896,
+    "cell": 7,
+    "pass": true,
+    "edge_ratio": [
+     0.0006741976395923367,
+     0.00047060960805973004
+    ],
+    "independence": {
+     "max_diff": 4.14483262331375e-13,
+     "limit": 1.240859266020354e-09,
+     "pass": true
+    }
+   },
+   "B1": {
+    "H": [
+     3.663638164549963e-14,
+     4.501616941380896e-14,
+     -5.758496325737469e-13,
+     4.199583339562056e-13,
+     -2.6944722189309936e-14
+    ],
+    "16pi_rho_dust": [
+     2.516409673021551e-09,
+     2.5410729159916056e-09,
+     2.5881918957728135e-09,
+     2.6535332880582423e-09,
+     2.731183807887379e-09
+    ]
+   },
+   "B4": {
+    "M0": 0.0,
+    "limit": 0.0,
+    "pass": true
+   },
+   "B3_ii_kdot": {
+    "stored": -1.146932471846219e-12,
+    "mp": -1.153547150896692e-12,
+    "bound": 1.4564937117545448e-10,
+    "pass": true
+   },
+   "newton_residual": {
+    "literal_worst_ratio": 39618212763314.68,
+    "literal_cell": 154,
+    "literal_pass": false,
+    "literal_cells_failing": 158,
+    "B5_form_worst_ratio": 0.011304838845478121,
+    "B5_form_pass": true,
+    "pass": true,
+    "gate": "B5 form (A22 item 2); literal_* supplementary",
+    "max_abs_H_non_edge": 6.010773800737012e-13,
+    "max_abs_H60_at_stored_X": 4.0793673261685483e-13,
+    "newton_log": [
+     {
+      "iter": 0,
+      "max_abs_H_non_edge": 3.0449872733451605e-09,
+      "norm_row": 0.0
+     },
+     {
+      "iter": 1,
+      "max_abs_H_non_edge": 6.010773800737012e-13,
+      "norm_row": 7.494005416219807e-16
+     },
+     {
+      "iter": 2,
+      "max_abs_H_non_edge": 7.393163879481458e-13,
+      "norm_row": -1.0436096431631568e-15
+     }
+    ],
+    "note": "A22 item 2: B5 form is the gate"
+   },
+   "M0_bitwise": {
+    "nonzero_cells": 0,
+    "pass": true
+   },
+   "S_rhs_pi_term": {
+    "equal_bitwise": true,
+    "max_abs": 0.0,
+    "pass": true
+   },
+   "PS_rhs_vs_60_digits": {
+    "worst_ratio": 0.008208732962460982,
+    "cell": 74,
+    "pass": true,
+    "edge_ratio": [
+     0.0006344633087343563,
+     0.00026206231451124054
+    ],
+    "independence": {
+     "max_diff": 1.1655173354219173e-18,
+     "limit": 1.700371471638071e-15,
+     "pass": true
+    },
+    "gate": "A23 3a"
+   },
+   "S_construction": {
+    "gate": "A23 3b",
+    "worst_ratio": 0.5385049599533779,
+    "cell": 50,
+    "pass": true,
+    "max_rel_err_in_u": 119.3934611051671,
+    "cell_max_rel_err": 158,
+    "grid": "direct: (i + 1/2) * (r_max / n)"
+   },
+   "PS_rhs_vs_analytic": {
+    "reading_only": true,
+    "worst_ratio_to_A22_bound": 0.5953389828330926,
+    "cell": 138,
+    "within_A22_bound": true,
+    "stored_minus_analytic_fixed_points": [
+     5.79907939148472e-10,
+     5.712603756111511e-10,
+     5.542484739508284e-10,
+     5.294256525841807e-10,
+     4.975902152217002e-10
+    ],
+    "predicted_truncation_fixed_points": [
+     5.799079387566588e-10,
+     5.712603759249089e-10,
+     5.542484740075817e-10,
+     5.294256513409812e-10,
+     4.975902143603803e-10
+    ],
+    "max_abs_predicted_truncation": 5.799079387566588e-10,
+    "note": "A23: the exact-sample compare (A22 item 3 form) and the analytic difference are readings only; the gates are A23 3a (PS_rhs_vs_60_digits) and 3b (S_construction)"
+   }
+  },
+  "T2_amp0.005_dr0.05_r8": {
+   "rhs": {
+    "a": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    },
+    "b": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    },
+    "X": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    },
+    "Aa": {
+     "worst_ratio": 0.0013773598833351811,
+     "cell": 58,
+     "pass": true,
+     "edge_ratio": [
+      7.242234191938799e-05,
+      8.824741675369455e-05
+     ],
+     "independence": {
+      "max_diff": 1.0595648978432154e-13,
+      "limit": 1.0929562460545832e-09,
+      "pass": true
+     }
+    },
+    "K": {
+     "worst_ratio": 0.007805339591168006,
+     "cell": 16,
+     "pass": true,
+     "edge_ratio": [
+      0.001179819864708082,
+      0.00011112551407960739
+     ],
+     "independence": {
+      "max_diff": 8.88005677389049e-14,
+      "limit": 1.5059521312316936e-10,
+      "pass": true
+     }
+    },
+    "Lambda": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    }
+   },
+   "B5_H": {
+    "worst_ratio": 0.004941840129040354,
+    "cell": 96,
+    "pass": true,
+    "edge_ratio": [
+     0.00029017513493768255,
+     0.00022116738481853986
+    ],
+    "independence": {
+     "max_diff": 3.5526411874911824e-13,
+     "limit": 1.2405670187802948e-09,
+     "pass": true
+    }
+   },
+   "B1": {
+    "H": [
+     3.896221453109083e-14,
+     3.511865277749937e-13,
+     -3.5725166314809487e-13,
+     -1.3627445526187554e-13,
+     -2.2383028590311493e-14
+    ],
+    "16pi_rho_dust": [
+     0.0006291020486816664,
+     0.0006352649396027624,
+     0.0006470390378357566,
+     0.0006633663832288213,
+     0.000682769174799229
+    ]
+   },
+   "B4": {
+    "M0": 0.0,
+    "limit": 0.0,
+    "pass": true
+   },
+   "B3_ii_kdot": {
+    "stored": -2.8845500312028483e-07,
+    "mp": -2.8845500973468136e-07,
+    "bound": 1.45643718812624e-10,
+    "pass": true
+   },
+   "newton_residual": {
+    "literal_worst_ratio": 174101405.97875118,
+    "literal_cell": 157,
+    "literal_pass": false,
+    "literal_cells_failing": 158,
+    "B5_form_worst_ratio": 0.013002620344408961,
+    "B5_form_pass": true,
+    "pass": true,
+    "gate": "B5 form (A22 item 2); literal_* supplementary",
+    "max_abs_H_non_edge": 6.938951705300615e-13,
+    "max_abs_H60_at_stored_X": 5.592739383243847e-13,
+    "newton_log": [
+     {
+      "iter": 0,
+      "max_abs_H_non_edge": 0.0007612468183362897,
+      "norm_row": 0.0
+     },
+     {
+      "iter": 1,
+      "max_abs_H_non_edge": 8.982528706025401e-08,
+      "norm_row": -2.873906672265069e-12
+     },
+     {
+      "iter": 2,
+      "max_abs_H_non_edge": 6.938951705300615e-13,
+      "norm_row": -5.606612721829884e-16
+     },
+     {
+      "iter": 3,
+      "max_abs_H_non_edge": 9.407048979892942e-13,
+      "norm_row": 9.71445146547012e-16
+     }
+    ],
+    "note": "A22 item 2: B5 form is the gate"
+   },
+   "M0_bitwise": {
+    "nonzero_cells": 0,
+    "pass": true
+   },
+   "S_rhs_pi_term": {
+    "equal_bitwise": true,
+    "max_abs": 0.0,
+    "pass": true
+   },
+   "PS_rhs_vs_60_digits": {
+    "worst_ratio": 0.00897283992270027,
+    "cell": 18,
+    "pass": true,
+    "edge_ratio": [
+     0.0003217201323570493,
+     0.0001435547913362392
+    ],
+    "independence": {
+     "max_diff": 8.673617379884035e-16,
+     "limit": 8.500444266423264e-13,
+     "pass": true
+    },
+    "gate": "A23 3a"
+   },
+   "S_construction": {
+    "gate": "A23 3b",
+    "worst_ratio": 0.5252290993256873,
+    "cell": 118,
+    "pass": true,
+    "max_rel_err_in_u": 119.86834451430548,
+    "cell_max_rel_err": 158,
+    "grid": "direct: (i + 1/2) * (r_max / n)"
+   },
+   "PS_rhs_vs_analytic": {
+    "reading_only": true,
+    "worst_ratio_to_A22_bound": 0.5824368889108186,
+    "cell": 138,
+    "within_A22_bound": true,
+    "stored_minus_analytic_fixed_points": [
+     2.899057579884254e-07,
+     2.855825992063507e-07,
+     2.7707788069341656e-07,
+     2.646682865970723e-07,
+     2.4875292603358435e-07
+    ],
+    "predicted_truncation_fixed_points": [
+     2.899057579923048e-07,
+     2.855825995438457e-07,
+     2.770778813548984e-07,
+     2.6466828600641117e-07,
+     2.487529263325326e-07
+    ],
+    "max_abs_predicted_truncation": 2.899057579923048e-07,
+    "note": "A23: the exact-sample compare (A22 item 3 form) and the analytic difference are readings only; the gates are A23 3a (PS_rhs_vs_60_digits) and 3b (S_construction)"
+   }
+  },
+  "T2_amp0.01_dr0.05_r8": {
+   "rhs": {
+    "a": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    },
+    "b": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    },
+    "X": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    },
+    "Aa": {
+     "worst_ratio": 0.0010300203638771968,
+     "cell": 129,
+     "pass": true,
+     "edge_ratio": [
+      1.3170093298690498e-06,
+      2.0270422177362052e-07
+     ],
+     "independence": {
+      "max_diff": 7.898127884673443e-14,
+      "limit": 1.0924113497473827e-09,
+      "pass": true
+     }
+    },
+    "K": {
+     "worst_ratio": 0.00791844396778504,
+     "cell": 129,
+     "pass": true,
+     "edge_ratio": [
+      0.0007020112080954207,
+      0.00044631521956740156
+     ],
+     "independence": {
+      "max_diff": 9.119919971528568e-14,
+      "limit": 1.5052010117884093e-10,
+      "pass": true
+     }
+    },
+    "Lambda": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    }
+   },
+   "B5_H": {
+    "worst_ratio": 0.004943869353277769,
+    "cell": 105,
+    "pass": true,
+    "edge_ratio": [
+     0.00043104891793826225,
+     4.0854751091394624e-05
+    ],
+    "independence": {
+     "max_diff": 3.552448421469723e-13,
+     "limit": 1.2396903802600837e-09,
+     "pass": true
+    }
+   },
+   "B1": {
+    "H": [
+     3.7410656170133727e-13,
+     5.395814003938959e-14,
+     -2.0121231070202583e-13,
+     -2.8290217390924965e-13,
+     3.8992030090834184e-13
+    ],
+    "16pi_rho_dust": [
+     0.002516403760363907,
+     0.0025410202903196275,
+     0.0025880489307108533,
+     0.0026532622915315285,
+     0.002730755411203411
+    ]
+   },
+   "B4": {
+    "M0": 0.0,
+    "limit": 0.0,
+    "pass": true
+   },
+   "B3_ii_kdot": {
+    "stored": -1.1546393467608e-06,
+    "mp": -1.154639353374349e-06,
+    "bound": 1.4562675650030797e-10,
+    "pass": true
+   },
+   "newton_residual": {
+    "literal_worst_ratio": 34081196.15271995,
+    "literal_cell": 141,
+    "literal_pass": false,
+    "literal_cells_failing": 158,
+    "B5_form_worst_ratio": 0.012660634658465432,
+    "B5_form_pass": true,
+    "pass": true,
+    "gate": "B5 form (A22 item 2); literal_* supplementary",
+    "max_abs_H_non_edge": 6.732511721522706e-13,
+    "max_abs_H60_at_stored_X": 5.229147415079886e-13,
+    "newton_log": [
+     {
+      "iter": 0,
+      "max_abs_H_non_edge": 0.003044987273345159,
+      "norm_row": 0.0
+     },
+     {
+      "iter": 1,
+      "max_abs_H_non_edge": 1.4364179187231242e-06,
+      "norm_row": -4.59485394340136e-11
+     },
+     {
+      "iter": 2,
+      "max_abs_H_non_edge": 9.099309847271364e-13,
+      "norm_row": -1.4266203236107389e-15
+     },
+     {
+      "iter": 3,
+      "max_abs_H_non_edge": 6.732511721522706e-13,
+      "norm_row": 1.854067030113149e-15
+     }
+    ],
+    "note": "A22 item 2: B5 form is the gate"
+   },
+   "M0_bitwise": {
+    "nonzero_cells": 0,
+    "pass": true
+   },
+   "S_rhs_pi_term": {
+    "equal_bitwise": true,
+    "max_abs": 0.0,
+    "pass": true
+   },
+   "PS_rhs_vs_60_digits": {
+    "worst_ratio": 0.008936054882498528,
+    "cell": 18,
+    "pass": true,
+    "edge_ratio": [
+     0.0003644717764315774,
+     0.00016999869027191732
+    ],
+    "independence": {
+     "max_diff": 1.7208456881689926e-15,
+     "limit": 1.6992412173936112e-12,
+     "pass": true
+    },
+    "gate": "A23 3a"
+   },
+   "S_construction": {
+    "gate": "A23 3b",
+    "worst_ratio": 0.5252290993256873,
+    "cell": 118,
+    "pass": true,
+    "max_rel_err_in_u": 119.86834451430548,
+    "cell_max_rel_err": 158,
+    "grid": "direct: (i + 1/2) * (r_max / n)"
+   },
+   "PS_rhs_vs_analytic": {
+    "reading_only": true,
+    "worst_ratio_to_A22_bound": 0.5834388170351662,
+    "cell": 138,
+    "within_A22_bound": true,
+    "stored_minus_analytic_fixed_points": [
+     5.795223223743143e-07,
+     5.708797413458941e-07,
+     5.538776984331814e-07,
+     5.290694025334585e-07,
+     4.972528296762375e-07
+    ],
+    "predicted_truncation_fixed_points": [
+     5.795223223915535e-07,
+     5.708797420222793e-07,
+     5.538776997608964e-07,
+     5.290694013465256e-07,
+     4.972528302891413e-07
+    ],
+    "max_abs_predicted_truncation": 5.795223223915535e-07,
+    "note": "A23: the exact-sample compare (A22 item 3 form) and the analytic difference are readings only; the gates are A23 3a (PS_rhs_vs_60_digits) and 3b (S_construction)"
+   }
+  },
+  "T2_amp0.01_dr0.05_r12": {
+   "rhs": {
+    "a": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    },
+    "b": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    },
+    "X": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    },
+    "Aa": {
+     "worst_ratio": 0.001157726828523803,
+     "cell": 129,
+     "pass": true,
+     "edge_ratio": [
+      1.1112930033492657e-05,
+      5.3417682310445496e-05
+     ],
+     "independence": {
+      "max_diff": 8.877166258076117e-14,
+      "limit": 1.0924248091779526e-09,
+      "pass": true
+     }
+    },
+    "K": {
+     "worst_ratio": 0.00792274798988145,
+     "cell": 174,
+     "pass": true,
+     "edge_ratio": [
+      0.0011480696241131382,
+      0.0002368990644212405
+     ],
+     "independence": {
+      "max_diff": 8.880982205030968e-14,
+      "limit": 1.5052195566284545e-10,
+      "pass": true
+     }
+    },
+    "Lambda": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    }
+   },
+   "B5_H": {
+    "worst_ratio": 0.0049524959300343,
+    "cell": 197,
+    "pass": true,
+    "edge_ratio": [
+     0.0008196967598094186,
+     7.569577211643436e-05
+    ],
+    "independence": {
+     "max_diff": 3.5525719823813765e-13,
+     "limit": 1.2396903802576514e-09,
+     "pass": true
+    }
+   },
+   "B1": {
+    "H": [
+     4.45630077977599e-13,
+     -3.4298475518057536e-13,
+     2.4338690784997397e-13,
+     -1.729120319149402e-13,
+     2.2538524865889364e-13
+    ],
+    "16pi_rho_dust": [
+     0.002516403760363895,
+     0.0025410202903195177,
+     0.002588048930710555,
+     0.0026532622915309612,
+     0.00273075541120251
+    ]
+   },
+   "B4": {
+    "M0": 0.0,
+    "limit": 0.0,
+    "pass": true
+   },
+   "B3_ii_kdot": {
+    "stored": -3.421384586092036e-07,
+    "mp": -3.421384630288262e-07,
+    "bound": 1.816735766345606e-10,
+    "pass": true
+   },
+   "newton_residual": {
+    "literal_worst_ratio": 126973625.12194817,
+    "literal_cell": 230,
+    "literal_pass": false,
+    "literal_cells_failing": 238,
+    "B5_form_worst_ratio": 0.0131795281872239,
+    "B5_form_pass": true,
+    "pass": true,
+    "gate": "B5 form (A22 item 2); literal_* supplementary",
+    "max_abs_H_non_edge": 7.016540118517259e-13,
+    "max_abs_H60_at_stored_X": 6.113334251604613e-13,
+    "newton_log": [
+     {
+      "iter": 0,
+      "max_abs_H_non_edge": 0.003044987273345159,
+      "norm_row": 0.0
+     },
+     {
+      "iter": 1,
+      "max_abs_H_non_edge": 1.4364179841304392e-06,
+      "norm_row": -2.033705425201135e-11
+     },
+     {
+      "iter": 2,
+      "max_abs_H_non_edge": 7.916587593067364e-13,
+      "norm_row": -1.731931655382657e-15
+     },
+     {
+      "iter": 3,
+      "max_abs_H_non_edge": 7.016540118517259e-13,
+      "norm_row": 5.939801601961836e-16
+     }
+    ],
+    "note": "A22 item 2: B5 form is the gate"
+   },
+   "M0_bitwise": {
+    "nonzero_cells": 0,
+    "pass": true
+   },
+   "S_rhs_pi_term": {
+    "equal_bitwise": true,
+    "max_abs": 0.0,
+    "pass": true
+   },
+   "PS_rhs_vs_60_digits": {
+    "worst_ratio": 0.009044449014412394,
+    "cell": 18,
+    "pass": true,
+    "edge_ratio": [
+     0.000924890821097088,
+     0.0011999129783743319
+    ],
+    "independence": {
+     "max_diff": 1.734723475976807e-15,
+     "limit": 1.699262153456879e-12,
+     "pass": true
+    },
+    "gate": "A23 3a"
+   },
+   "S_construction": {
+    "gate": "A23 3b",
+    "worst_ratio": 0.5981011803521515,
+    "cell": 239,
+    "pass": true,
+    "max_rel_err_in_u": 430.63471891973774,
+    "cell_max_rel_err": 239,
+    "grid": "direct: (i + 1/2) * (r_max / n)"
+   },
+   "PS_rhs_vs_analytic": {
+    "reading_only": true,
+    "worst_ratio_to_A22_bound": 1.7619343814860808,
+    "cell": 227,
+    "within_A22_bound": false,
+    "stored_minus_analytic_fixed_points": [
+     5.795294625677109e-07,
+     5.708867743205538e-07,
+     5.538845205429266e-07,
+     5.290759170640088e-07,
+     4.97258949875478e-07
+    ],
+    "predicted_truncation_fixed_points": [
+     5.79529462576506e-07,
+     5.70886775003952e-07,
+     5.538845218819476e-07,
+     5.290759158765636e-07,
+     4.972589504855164e-07
+    ],
+    "max_abs_predicted_truncation": 5.79529462576506e-07,
+    "note": "A23: the exact-sample compare (A22 item 3 form) and the analytic difference are readings only; the gates are A23 3a (PS_rhs_vs_60_digits) and 3b (S_construction)"
+   }
+  },
+  "T2_amp0.03_dr0.025_r8": {
+   "rhs": {
+    "a": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    },
+    "b": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    },
+    "X": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    },
+    "Aa": {
+     "worst_ratio": 0.0013847734837470643,
+     "cell": 180,
+     "pass": true,
+     "edge_ratio": [
+      7.279803481326962e-07,
+      6.854935549872358e-05
+     ],
+     "independence": {
+      "max_diff": 4.238297945024713e-13,
+      "limit": 4.34643843415563e-09,
+      "pass": true
+     }
+    },
+    "K": {
+     "worst_ratio": 0.007902570302051996,
+     "cell": 77,
+     "pass": true,
+     "edge_ratio": [
+      0.00022733150006401954,
+      0.00023472531679429728
+     ],
+     "independence": {
+      "max_diff": 3.539715873521589e-13,
+      "limit": 5.988825683223135e-10,
+      "pass": true
+     }
+    },
+    "Lambda": {
+     "worst_ratio": 0.0,
+     "cell": 0,
+     "pass": true,
+     "edge_ratio": [
+      0.0,
+      0.0
+     ],
+     "independence": {
+      "max_diff": 0.0,
+      "limit": 0.0,
+      "pass": true
+     }
+    }
+   },
+   "B5_H": {
+    "worst_ratio": 0.0047510662333205495,
+    "cell": 180,
+    "pass": true,
+    "edge_ratio": [
+     0.0001529826139671973,
+     0.0005058372391027255
+    ],
+    "independence": {
+     "max_diff": 1.3614558759972195e-12,
+     "limit": 4.9213856508867e-09,
+     "pass": true
+    }
+   },
+   "B1": {
+    "H": [
+     -2.013566396952271e-12,
+     -1.3770839761299574e-13,
+     -2.0453317257684402e-13,
+     2.599502237126591e-13,
+     2.613952110319673e-13
+    ],
+    "16pi_rho_dust": [
+     0.022626412611255607,
+     0.022897770275160215,
+     0.023312227175100463,
+     0.023886123646467135,
+     0.02456741994505311
+    ]
+   },
+   "B4": {
+    "M0": 0.0,
+    "limit": 0.0,
+    "pass": true
+   },
+   "B3_ii_kdot": {
+    "stored": -1.0470879473116508e-05,
+    "mp": -1.0470879486371966e-05,
+    "bound": 8.754970258916284e-10,
+    "pass": true
+   },
+   "newton_residual": {
+    "literal_worst_ratio": 17740271.32817649,
+    "literal_cell": 299,
+    "literal_pass": false,
+    "literal_cells_failing": 318,
+    "B5_form_worst_ratio": 0.013074772946530864,
+    "B5_form_pass": true,
+    "pass": true,
+    "gate": "B5 form (A22 item 2); literal_* supplementary",
+    "max_abs_H_non_edge": 2.915525459945556e-12,
+    "max_abs_H60_at_stored_X": 2.834107968012198e-12,
+    "newton_log": [
+     {
+      "iter": 0,
+      "max_abs_H_non_edge": 0.027430285541325494,
+      "norm_row": 0.0
+     },
+     {
+      "iter": 1,
+      "max_abs_H_non_edge": 0.00011575704164512937,
+      "norm_row": -1.8353952329318302e-09
+     },
+     {
+      "iter": 2,
+      "max_abs_H_non_edge": 2.6660534196976116e-09,
+      "norm_row": -9.592326932761353e-14
+     },
+     {
+      "iter": 3,
+      "max_abs_H_non_edge": 3.0933328815097028e-12,
+      "norm_row": 3.599551212651875e-17
+     },
+     {
+      "iter": 4,
+      "max_abs_H_non_edge": 2.915525459945556e-12,
+      "norm_row": -1.5514933088267568e-15
+     }
+    ],
+    "note": "A22 item 2: B5 form is the gate"
+   },
+   "M0_bitwise": {
+    "nonzero_cells": 0,
+    "pass": true
+   },
+   "S_rhs_pi_term": {
+    "equal_bitwise": true,
+    "max_abs": 0.0,
+    "pass": true
+   },
+   "PS_rhs_vs_60_digits": {
+    "worst_ratio": 0.007493593913355027,
+    "cell": 42,
+    "pass": true,
+    "edge_ratio": [
+     0.001452605992950784,
+     7.681245643516451e-05
+    ],
+    "independence": {
+     "max_diff": 9.742207041085749e-15,
+     "limit": 2.0333288052334713e-11,
+     "pass": true
+    },
+    "gate": "A23 3a"
+   },
+   "S_construction": {
+    "gate": "A23 3b",
+    "worst_ratio": 0.6009794754393928,
+    "cell": 239,
+    "pass": true,
+    "max_rel_err_in_u": 133.57005456935312,
+    "cell_max_rel_err": 319,
+    "grid": "direct: (i + 1/2) * (r_max / n)"
+   },
+   "PS_rhs_vs_analytic": {
+    "reading_only": true,
+    "worst_ratio_to_A22_bound": 0.7001492081566767,
+    "cell": 296,
+    "within_A22_bound": true,
+    "stored_minus_analytic_fixed_points": [
+     1.0856169669127947e-07,
+     1.0654523386222635e-07,
+     1.0336462661201379e-07,
+     9.87280712669512e-08,
+     9.278299263294807e-08
+    ],
+    "predicted_truncation_fixed_points": [
+     1.0856170184414712e-07,
+     1.0654523421306818e-07,
+     1.0336462730594888e-07,
+     9.872806213585749e-08,
+     9.278299909085343e-08
+    ],
+    "max_abs_predicted_truncation": 1.0856170184414712e-07,
+    "note": "A23: the exact-sample compare (A22 item 3 form) and the analytic difference are readings only; the gates are A23 3a (PS_rhs_vs_60_digits) and 3b (S_construction)"
+   }
+  }
+ },
+ "arms": {
+  "T2-3": {
+   "saves": [],
+   "steps": [
+    {
+     "GK1": {
+      "primary": {
+       "pred": [
+        1.1680389111517428e-09,
+        1.1487259984235588e-09,
+        1.1109019635863751e-09,
+        1.0561197274338458e-09,
+        9.865858967995091e-10
+       ],
+       "measured": [
+        1.1680389337224391e-09,
+        1.1487260014457483e-09,
+        1.1109019216852223e-09,
+        1.056119728473454e-09,
+        9.865858922901584e-10
+       ],
+       "residual": [
+        2.2570696280354148e-17,
+        3.0221895675655796e-18,
+        -4.1901152806999756e-17,
+        1.0396082452773113e-18,
+        -4.50935070750476e-18
+       ]
+      },
+      "accepted": {
+       "pred": [
+        1.1712776284051138e-09,
+        1.1519141742021637e-09,
+        1.1139912702447798e-09,
+        1.0590660705950107e-09,
+        9.893512140402166e-10
+       ],
+       "measured": [
+        1.1712776407500948e-09,
+        1.1519141707558383e-09,
+        1.113991268481623e-09,
+        1.0590660745375053e-09,
+        9.893511991592624e-10
+       ],
+       "residual": [
+        1.2344980980518222e-17,
+        -3.446325392676379e-18,
+        -1.7631567755575517e-18,
+        3.942494587070133e-18,
+        -1.4880954197615438e-17
+       ]
+      }
+     },
+     "rounding_share": {
+      "M_from_rounding_band": [
+       -1.0474389498781388e-15,
+       -7.42156626110319e-17,
+       2.1601052425854112e-16,
+       -6.363673100636701e-17
+      ],
+      "dM_step_band": [
+       -9.748436476387728e-07,
+       -1.583384402801e-06,
+       -2.1326013832079573e-06,
+       -2.6037556055281765e-06
+      ],
+      "band_rms_ratio": 2.7929930174120924e-10,
+      "native_sign_change_fraction": 0.5605095541401274,
+      "per_call": {
+       "stage0_primary_l2": {
+        "K_rms_interior": 4.091365802137158e-14,
+        "Aa_rms_interior": 3.4060968775256126e-14
+       },
+       "final_l2_primary_l2": {
+        "K_rms_interior": 3.846422482838163e-14,
+        "Aa_rms_interior": 3.821347665877074e-14
+       },
+       "stage0_primary_l3": {
+        "K_rms_interior": 2.0419967485855162e-20,
+        "Aa_rms_interior": 4.2591016336186777e-20
+       },
+       "primary_primary_l3": {
+        "K_rms_interior": 2.8514309848190125e-20,
+        "Aa_rms_interior": 4.0554237862553287e-20
+       }
+      }
+     },
+     "K_prime": {
+      "start": {
+       "mp60": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "stage0": {
+       "mp60": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "explicit_predictor": {
+       "mp60": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "primary": {
+       "mp60": [
+        1.296437538366672e-10,
+        3.8352987894305374e-10,
+        6.215523803845264e-10,
+        8.342526548289115e-10,
+        1.0137463783320715e-09
+       ]
+      },
+      "final_l2_call": {
+       "mp60": [
+        1.296437538366672e-10,
+        3.8352987894305374e-10,
+        6.215523803845264e-10,
+        8.342526548289115e-10,
+        1.0137463783320715e-09
+       ]
+      },
+      "accepted": {
+       "mp60": [
+        1.2998317519981698e-10,
+        3.8453267992798303e-10,
+        6.23175920173147e-10,
+        8.364278728214279e-10,
+        1.0163825191248061e-09
+       ]
+      }
+     }
+    },
+    {
+     "GK1": {
+      "primary": {
+       "pred": [
+        -1.330555377465026e-08,
+        -1.3027044329799103e-08,
+        -1.2484466629418357e-08,
+        -1.1705594145669754e-08,
+        -1.0729428590406454e-08
+       ],
+       "measured": [
+        -1.3305553750772882e-08,
+        -1.302704434991656e-08,
+        -1.2484466622199631e-08,
+        -1.1705594132048695e-08,
+        -1.0729428575213141e-08
+       ],
+       "residual": [
+        2.387737736398222e-17,
+        -2.0117457668124485e-17,
+        7.218725796411467e-18,
+        1.3621059069818824e-17,
+        1.519331269296164e-17
+       ]
+      },
+      "accepted": {
+       "pred": [
+        -1.0531890931412908e-08,
+        -1.0289182604802365e-08,
+        -9.816933631994436e-09,
+        -9.140440333119704e-09,
+        -8.295158547892014e-09
+       ],
+       "measured": [
+        -1.0531890967308475e-08,
+        -1.0289182596568152e-08,
+        -9.816933627030148e-09,
+        -9.140440353134831e-09,
+        -8.295158541238194e-09
+       ],
+       "residual": [
+        -3.5895567201826415e-17,
+        8.234212421050967e-18,
+        4.964288050290043e-18,
+        -2.001512715454555e-17,
+        6.653819340680628e-18
+       ]
+      }
+     },
+     "rounding_share": {
+      "M_from_rounding_band": [
+       -1.7381643692077847e-16,
+       2.9345985125722776e-16,
+       3.8367001310702943e-16,
+       -1.0521770282988394e-16
+      ],
+      "dM_step_band": [
+       3.4102533894383606e-07,
+       5.480852001457214e-07,
+       7.272857666679872e-07,
+       8.702985957803003e-07
+      ],
+      "band_rms_ratio": 4.015491314123927e-10,
+      "native_sign_change_fraction": 0.5732484076433121,
+      "per_call": {
+       "stage0_primary_l2": {
+        "K_rms_interior": 3.910323642518186e-14,
+        "Aa_rms_interior": 4.2343952839730337e-14
+       },
+       "final_l2_primary_l2": {
+        "K_rms_interior": 3.5889526609462976e-14,
+        "Aa_rms_interior": 3.9426716975230506e-14
+       },
+       "stage0_primary_l3": {
+        "K_rms_interior": 1.2957652412398553e-19,
+        "Aa_rms_interior": 2.33956092121066e-20
+       },
+       "primary_primary_l3": {
+        "K_rms_interior": 1.8780617407251276e-19,
+        "Aa_rms_interior": 2.4507683993444822e-20
+       }
+      }
+     },
+     "K_prime": {
+      "start": {
+       "mp60": [
+        -4.634334950271682e-07,
+        -1.3632988885731206e-06,
+        -2.1844167207478334e-06,
+        -2.8815686019660313e-06,
+        -3.419648493592621e-06
+       ]
+      },
+      "stage0": {
+       "mp60": [
+        -4.634334950271682e-07,
+        -1.3632988885731206e-06,
+        -2.1844167207478334e-06,
+        -2.8815686019660313e-06,
+        -3.419648493592621e-06
+       ]
+      },
+      "explicit_predictor": {
+       "mp60": [
+        -4.634334950271682e-07,
+        -1.3632988885731206e-06,
+        -2.1844167207478334e-06,
+        -2.8815686019660313e-06,
+        -3.419648493592621e-06
+       ]
+      },
+      "primary": {
+       "mp60": [
+        -4.6530627000398333e-07,
+        -1.3688197079174116e-06,
+        -2.1933005836004815e-06,
+        -2.893364781210339e-06,
+        -3.433774422562186e-06
+       ]
+      },
+      "final_l2_call": {
+       "mp60": [
+        -4.6530627000398333e-07,
+        -1.3688197079174116e-06,
+        -2.1933005836004815e-06,
+        -2.893364781210339e-06,
+        -3.433774422562186e-06
+       ]
+      },
+      "accepted": {
+       "mp60": [
+        -4.6506618168981774e-07,
+        -1.3681080086931795e-06,
+        -2.192142504660496e-06,
+        -2.891800839009946e-06,
+        -3.4318582212133156e-06
+       ]
+      }
+     }
+    },
+    {
+     "GK1": {
+      "primary": {
+       "pred": [
+        -1.0983571432337043e-08,
+        -1.0807360936865585e-08,
+        -1.0461400448467285e-08,
+        -9.958263560006352e-09,
+        -9.31603299050135e-09
+       ],
+       "measured": [
+        -1.0983571416278726e-08,
+        -1.0807360948905101e-08,
+        -1.0461400463912158e-08,
+        -9.958263560337454e-09,
+        -9.31603301423104e-09
+       ],
+       "residual": [
+        1.6058316966204268e-17,
+        -1.2039514554035811e-17,
+        -1.5444873206490042e-17,
+        -3.311038555927259e-19,
+        -2.3729689228694553e-17
+       ]
+      },
+      "accepted": {
+       "pred": [
+        -1.2144956233868647e-08,
+        -1.1941028641407558e-08,
+        -1.1541011575344938e-08,
+        -1.0960139026789926e-08,
+        -1.0220255212447957e-08
+       ],
+       "measured": [
+        -1.2144956232730658e-08,
+        -1.1941028652684223e-08,
+        -1.1541011568664075e-08,
+        -1.096013900035525e-08,
+        -1.0220255238546742e-08
+       ],
+       "residual": [
+        1.1379887646361525e-18,
+        -1.1276665432082258e-17,
+        6.680863183627437e-18,
+        2.643467571086136e-17,
+        -2.6098787442605628e-17
+       ]
+      }
+     },
+     "rounding_share": {
+      "M_from_rounding_band": [
+       3.21430899313724e-16,
+       1.7672847547300489e-16,
+       3.2105445779122077e-16,
+       -4.747793785224771e-16
+      ],
+      "dM_step_band": [
+       6.628829749110842e-07,
+       1.0863667237712192e-06,
+       1.4818238587901707e-06,
+       1.8393635295904437e-06
+      ],
+      "band_rms_ratio": 2.5362044213247715e-10,
+      "native_sign_change_fraction": 0.5222929936305732,
+      "per_call": {
+       "stage0_primary_l2": {
+        "K_rms_interior": 3.9330347721743283e-14,
+        "Aa_rms_interior": 4.3659834946839937e-14
+       },
+       "final_l2_primary_l2": {
+        "K_rms_interior": 3.741341536905175e-14,
+        "Aa_rms_interior": 3.80521290640816e-14
+       },
+       "stage0_primary_l3": {
+        "K_rms_interior": 2.3289782002189816e-19,
+        "Aa_rms_interior": 1.928374285681059e-21
+       },
+       "primary_primary_l3": {
+        "K_rms_interior": 2.9595078358174395e-19,
+        "Aa_rms_interior": 2.473111826535898e-21
+       }
+      }
+     },
+     "K_prime": {
+      "start": {
+       "mp60": [
+        -1.949487804534327e-06,
+        -5.749752308349846e-06,
+        -9.261273280831356e-06,
+        -1.2315204792069595e-05,
+        -1.4775718975178518e-05
+       ]
+      },
+      "stage0": {
+       "mp60": [
+        -1.949487804534327e-06,
+        -5.749752308349846e-06,
+        -9.261273280831356e-06,
+        -1.2315204792069595e-05,
+        -1.4775718975178518e-05
+       ]
+      },
+      "explicit_predictor": {
+       "mp60": [
+        -1.949487804534327e-06,
+        -5.749752308349846e-06,
+        -9.261273280831356e-06,
+        -1.2315204792069595e-05,
+        -1.4775718975178518e-05
+       ]
+      },
+      "primary": {
+       "mp60": [
+        -1.9506697192609892e-06,
+        -5.753254596975392e-06,
+        -9.26696799272746e-06,
+        -1.232288587905051e-05,
+        -1.4785112381337878e-05
+       ]
+      },
+      "final_l2_call": {
+       "mp60": [
+        -1.9506697192609892e-06,
+        -5.753254596975392e-06,
+        -9.26696799272746e-06,
+        -1.232288587905051e-05,
+        -1.4785112381337878e-05
+       ]
+      },
+      "accepted": {
+       "mp60": [
+        -1.9508560307080503e-06,
+        -5.753804241772244e-06,
+        -9.267853743302964e-06,
+        -1.2324064439274398e-05,
+        -1.4786527326856166e-05
+       ]
+      }
+     }
+    },
+    {
+     "GK1": {
+      "primary": {
+       "pred": [
+        1.731091401117781e-09,
+        1.6846629863442957e-09,
+        1.5935946703445728e-09,
+        1.4614330066388272e-09,
+        1.293395967288975e-09
+       ],
+       "measured": [
+        1.7310913484402555e-09,
+        1.6846629938745236e-09,
+        1.5935946642867983e-09,
+        1.4614329625518786e-09,
+        1.2933959874991094e-09
+       ],
+       "residual": [
+        -5.267752554933468e-17,
+        7.530227953028524e-18,
+        -6.057774497970843e-18,
+        -4.408694862434969e-17,
+        2.021013457036462e-17
+       ]
+      },
+      "accepted": {
+       "pred": [
+        -1.5136273712095095e-10,
+        -1.805335843367712e-10,
+        -2.373052412844817e-10,
+        -3.185813086551363e-10,
+        -4.198487274424815e-10
+       ],
+       "measured": [
+        -1.5136274623193405e-10,
+        -1.8053358892779576e-10,
+        -2.373052073179647e-10,
+        -3.185813589475109e-10,
+        -4.1984870737689385e-10
+       ],
+       "residual": [
+        -9.110983105862614e-18,
+        -4.591024530784897e-18,
+        3.396651697627709e-17,
+        -5.029237460316731e-17,
+        2.0065587653453123e-17
+       ]
+      }
+     },
+     "rounding_share": {
+      "M_from_rounding_band": [
+       4.0737032372710513e-16,
+       -2.600014697260668e-16,
+       -3.1571321637764526e-16,
+       3.1928446485817036e-17
+      ],
+      "dM_step_band": [
+       -3.970991231551759e-07,
+       -6.389178504778215e-07,
+       -8.499359431183955e-07,
+       -1.0200850247278322e-06
+      ],
+      "band_rms_ratio": 3.7884397829703075e-10,
+      "native_sign_change_fraction": 0.554140127388535,
+      "per_call": {
+       "stage0_primary_l2": {
+        "K_rms_interior": 3.9646973434959446e-14,
+        "Aa_rms_interior": 4.124188388912448e-14
+       },
+       "final_l2_primary_l2": {
+        "K_rms_interior": 3.7867096743761866e-14,
+        "Aa_rms_interior": 4.4571670617834847e-14
+       },
+       "stage0_primary_l3": {
+        "K_rms_interior": 8.017079688130992e-20,
+        "Aa_rms_interior": 2.078037457991721e-20
+       },
+       "primary_primary_l3": {
+        "K_rms_interior": 1.1936862928443324e-19,
+        "Aa_rms_interior": 2.0318026909036e-20
+       }
+      }
+     },
+     "K_prime": {
+      "start": {
+       "mp60": [
+        -2.2884407227632797e-06,
+        -6.75982417524988e-06,
+        -1.0922313506853185e-05,
+        -1.4593892394380833e-05,
+        -1.7625815667376894e-05
+       ]
+      },
+      "stage0": {
+       "mp60": [
+        -2.2884407227632797e-06,
+        -6.75982417524988e-06,
+        -1.0922313506853185e-05,
+        -1.4593892394380833e-05,
+        -1.7625815667376894e-05
+       ]
+      },
+      "explicit_predictor": {
+       "mp60": [
+        -2.2884407227632797e-06,
+        -6.75982417524988e-06,
+        -1.0922313506853185e-05,
+        -1.4593892394380833e-05,
+        -1.7625815667376894e-05
+       ]
+      },
+      "primary": {
+       "mp60": [
+        -2.288129213311126e-06,
+        -6.758901602930613e-06,
+        -1.0920815568086919e-05,
+        -1.4591877772480362e-05,
+        -1.7623364543532158e-05
+       ]
+      },
+      "final_l2_call": {
+       "mp60": [
+        -2.288129213311126e-06,
+        -6.758901602930613e-06,
+        -1.0920815568086919e-05,
+        -1.4591877772480362e-05,
+        -1.7623364543532158e-05
+       ]
+      },
+      "accepted": {
+       "mp60": [
+        -2.2882445059597497e-06,
+        -6.759246040721021e-06,
+        -1.0921384733298728e-05,
+        -1.4592664021587456e-05,
+        -1.7624356650470275e-05
+       ]
+      }
+     }
+    },
+    {
+     "GK1": {
+      "primary": {
+       "pred": [
+        -2.3232321010775042e-10,
+        -1.874378120492542e-10,
+        -1.0123283263769154e-10,
+        1.945019985566131e-11,
+        1.65049177701205e-10
+       ],
+       "measured": [
+        -2.3232313127777046e-10,
+        -1.8743783556154407e-10,
+        -1.0123283755710663e-10,
+        1.9450206516525383e-11,
+        1.6504914516522228e-10
+       ],
+       "residual": [
+        7.882997995309487e-17,
+        -2.351228987859731e-17,
+        -4.919415091796781e-18,
+        6.66086407283505e-18,
+        -3.253598273406752e-17
+       ]
+      },
+      "accepted": {
+       "pred": [
+        -6.961840184029275e-11,
+        -3.378494594423259e-11,
+        3.4658853929204814e-11,
+        1.2954912614672194e-10,
+        2.423193815363099e-10
+       ],
+       "measured": [
+        -6.961835843101762e-11,
+        -3.37849151102081e-11,
+        3.4658815651575294e-11,
+        1.2954913015501435e-10,
+        2.4231937438993223e-10
+       ],
+       "residual": [
+        4.3409275130176034e-17,
+        3.08340244896147e-17,
+        -3.827762952021e-17,
+        4.0082924104017225e-18,
+        -7.146377684905436e-18
+       ]
+      }
+     },
+     "rounding_share": {
+      "M_from_rounding_band": [
+       1.4504433752480922e-15,
+       5.503317979768224e-17,
+       7.788498463910657e-17,
+       -3.7381795132462496e-16
+      ],
+      "dM_step_band": [
+       -1.9482911165528976e-07,
+       -3.2749305198626836e-07,
+       -4.6104646504895914e-07,
+       -5.951885596784272e-07
+      ],
+      "band_rms_ratio": 1.7786762478637926e-09,
+      "native_sign_change_fraction": 0.554140127388535,
+      "per_call": {
+       "stage0_primary_l2": {
+        "K_rms_interior": 3.7944078124824015e-14,
+        "Aa_rms_interior": 3.799366815465928e-14
+       },
+       "final_l2_primary_l2": {
+        "K_rms_interior": 3.935218651090436e-14,
+        "Aa_rms_interior": 3.9937765426421094e-14
+       },
+       "stage0_primary_l3": {
+        "K_rms_interior": 2.411005061527795e-20,
+        "Aa_rms_interior": 2.1978973401999592e-20
+       },
+       "primary_primary_l3": {
+        "K_rms_interior": 2.231351465259876e-20,
+        "Aa_rms_interior": 2.6576138477610137e-20
+       }
+      }
+     },
+     "K_prime": {
+      "start": {
+       "mp60": [
+        -2.253014507308549e-06,
+        -6.648148142860615e-06,
+        -1.0719184170973482e-05,
+        -1.4277102071625038e-05,
+        -1.7170372446876298e-05
+       ]
+      },
+      "stage0": {
+       "mp60": [
+        -2.253014507308549e-06,
+        -6.648148142860615e-06,
+        -1.0719184170973482e-05,
+        -1.4277102071625038e-05,
+        -1.7170372446876298e-05
+       ]
+      },
+      "explicit_predictor": {
+       "mp60": [
+        -2.253014507308549e-06,
+        -6.648148142860615e-06,
+        -1.0719184170973482e-05,
+        -1.4277102071625038e-05,
+        -1.7170372446876298e-05
+       ]
+      },
+      "primary": {
+       "mp60": [
+        -2.2533177043837995e-06,
+        -6.649033641762805e-06,
+        -1.072058165104035e-05,
+        -1.4278900695097828e-05,
+        -1.7172429857189514e-05
+       ]
+      },
+      "final_l2_call": {
+       "mp60": [
+        -2.2533177043837995e-06,
+        -6.649033641762805e-06,
+        -1.072058165104035e-05,
+        -1.4278900695097828e-05,
+        -1.7172429857189514e-05
+       ]
+      },
+      "accepted": {
+       "mp60": [
+        -2.2532569782149987e-06,
+        -6.648853753865142e-06,
+        -1.0720289431672704e-05,
+        -1.427850735005687e-05,
+        -1.7171950672687543e-05
+       ]
+      }
+     }
+    },
+    {
+     "GK1": {
+      "primary": {
+       "pred": [
+        -2.2362107663864913e-09,
+        -2.2014421787727254e-09,
+        -2.1324584263212856e-09,
+        -2.030406514775736e-09,
+        -1.897097429805978e-09
+       ],
+       "measured": [
+        -2.2362107841593377e-09,
+        -2.201442187381515e-09,
+        -2.132458455306142e-09,
+        -2.030406545570592e-09,
+        -1.897097426945506e-09
+       ],
+       "residual": [
+        -1.7772846481886818e-17,
+        -8.60878958091703e-18,
+        -2.898485658215979e-17,
+        -3.079485597542076e-17,
+        2.860472035498706e-18
+       ]
+      },
+      "accepted": {
+       "pred": [
+        -1.9803091837960375e-09,
+        -1.944370134270921e-09,
+        -1.8732829236606768e-09,
+        -1.768651359931758e-09,
+        -1.6329268833973495e-09
+       ],
+       "measured": [
+        -1.980309175125829e-09,
+        -1.9443701627328586e-09,
+        -1.8732829073320442e-09,
+        -1.7686513967196477e-09,
+        -1.632926876648406e-09
+       ],
+       "residual": [
+        8.670208568579704e-18,
+        -2.846193781432214e-17,
+        1.632863255935139e-17,
+        -3.6787889735184066e-17,
+        6.748943249967848e-18
+       ]
+      }
+     },
+     "rounding_share": {
+      "M_from_rounding_band": [
+       -1.2264029256478456e-16,
+       -1.7949737166148485e-16,
+       4.895280545449829e-17,
+       2.596463122132774e-16
+      ],
+      "dM_step_band": [
+       1.1384652722396354e-07,
+       1.8464093691399953e-07,
+       2.4806655195467697e-07,
+       3.0133137353966774e-07
+      ],
+      "band_rms_ratio": 7.662576434837816e-10,
+      "native_sign_change_fraction": 0.5159235668789809,
+      "per_call": {
+       "stage0_primary_l2": {
+        "K_rms_interior": 3.73832984518859e-14,
+        "Aa_rms_interior": 4.10750820673919e-14
+       },
+       "final_l2_primary_l2": {
+        "K_rms_interior": 3.9310782663683235e-14,
+        "Aa_rms_interior": 4.231919070937229e-14
+       },
+       "stage0_primary_l3": {
+        "K_rms_interior": 3.614485105375608e-20,
+        "Aa_rms_interior": 1.3499760322276619e-20
+       },
+       "primary_primary_l3": {
+        "K_rms_interior": 3.0183590446821046e-20,
+        "Aa_rms_interior": 1.5622449446762685e-20
+       }
+      }
+     },
+     "K_prime": {
+      "start": {
+       "mp60": [
+        -2.5076694029450087e-06,
+        -7.399088281629461e-06,
+        -1.1928027985408568e-05,
+        -1.5882168907523576e-05,
+        -1.909001829193623e-05
+       ]
+      },
+      "stage0": {
+       "mp60": [
+        -2.5076694029450087e-06,
+        -7.399088281629461e-06,
+        -1.1928027985408568e-05,
+        -1.5882168907523576e-05,
+        -1.909001829193623e-05
+       ]
+      },
+      "explicit_predictor": {
+       "mp60": [
+        -2.5076694029450087e-06,
+        -7.399088281629461e-06,
+        -1.1928027985408568e-05,
+        -1.5882168907523576e-05,
+        -1.909001829193623e-05
+       ]
+      },
+      "primary": {
+       "mp60": [
+        -2.5079018085473946e-06,
+        -7.399781853176391e-06,
+        -1.1929171509605538e-05,
+        -1.5883742842045438e-05,
+        -1.9091993665419075e-05
+       ]
+      },
+      "final_l2_call": {
+       "mp60": [
+        -2.5079018085473946e-06,
+        -7.399781853176391e-06,
+        -1.1929171509605538e-05,
+        -1.5883742842045438e-05,
+        -1.9091993665419075e-05
+       ]
+      },
+      "accepted": {
+       "mp60": [
+        -2.5079098749936118e-06,
+        -7.399804450922732e-06,
+        -1.192920394966371e-05,
+        -1.5883777713252068e-05,
+        -1.9092021415049065e-05
+       ]
+      }
+     }
+    },
+    {
+     "GK1": {
+      "primary": {
+       "pred": [
+        -3.820973159295543e-10,
+        -3.90466849511441e-10,
+        -4.066503279161729e-10,
+        -4.2954838730435005e-10,
+        -4.575464005491466e-10
+       ],
+       "measured": [
+        -3.820972817601552e-10,
+        -3.904668429078072e-10,
+        -4.066503457336106e-10,
+        -4.2954839235838053e-10,
+        -4.5754642986597684e-10
+       ],
+       "residual": [
+        3.416939909982888e-17,
+        6.603633775929153e-18,
+        -1.7817437669059232e-17,
+        -5.054030477608358e-18,
+        -2.931683021816661e-17
+       ]
+      },
+      "accepted": {
+       "pred": [
+        -5.502890101039445e-10,
+        -5.550381040722464e-10,
+        -5.640489827438493e-10,
+        -5.763613372949674e-10,
+        -5.905747330437611e-10
+       ],
+       "measured": [
+        -5.502889751550691e-10,
+        -5.550381175711341e-10,
+        -5.640489854981278e-10,
+        -5.763613494459313e-10,
+        -5.905747671371421e-10
+       ],
+       "residual": [
+        3.494887532757657e-17,
+        -1.3498887698669615e-17,
+        -2.754278485061572e-18,
+        -1.2150963906687531e-17,
+        -3.4093380943041314e-17
+       ]
+      }
+     },
+     "rounding_share": {
+      "M_from_rounding_band": [
+       -1.2732134379025875e-16,
+       1.964736620793037e-16,
+       4.419981161363766e-17,
+       5.612067336827867e-17
+      ],
+      "dM_step_band": [
+       1.2167947860072543e-08,
+       2.291158407251694e-08,
+       3.638727887655458e-08,
+       5.346944580702378e-08
+      ],
+      "band_rms_ratio": 3.5126151960770504e-09,
+      "native_sign_change_fraction": 0.5222929936305732,
+      "per_call": {
+       "stage0_primary_l2": {
+        "K_rms_interior": 3.982175206167589e-14,
+        "Aa_rms_interior": 3.580938467132657e-14
+       },
+       "final_l2_primary_l2": {
+        "K_rms_interior": 3.911381598130957e-14,
+        "Aa_rms_interior": 3.818979483970474e-14
+       },
+       "stage0_primary_l3": {
+        "K_rms_interior": 3.0353816792636155e-20,
+        "Aa_rms_interior": 8.845025288078451e-21
+       },
+       "primary_primary_l3": {
+        "K_rms_interior": 4.38575239300282e-20,
+        "Aa_rms_interior": 7.446554044289524e-21
+       }
+      }
+     },
+     "K_prime": {
+      "start": {
+       "mp60": [
+        -2.571681200621649e-06,
+        -7.592185798383789e-06,
+        -1.2253182389101522e-05,
+        -1.6343623791351e-05,
+        -1.9692278025552647e-05
+       ]
+      },
+      "stage0": {
+       "mp60": [
+        -2.571681200621649e-06,
+        -7.592185798383789e-06,
+        -1.2253182389101522e-05,
+        -1.6343623791351e-05,
+        -1.9692278025552647e-05
+       ]
+      },
+      "explicit_predictor": {
+       "mp60": [
+        -2.571681200621649e-06,
+        -7.592185798383789e-06,
+        -1.2253182389101522e-05,
+        -1.6343623791351e-05,
+        -1.9692278025552647e-05
+       ]
+      },
+      "primary": {
+       "mp60": [
+        -2.5716247861923654e-06,
+        -7.592020272382468e-06,
+        -1.2252918829937635e-05,
+        -1.6343280375073828e-05,
+        -1.969187953645046e-05
+       ]
+      },
+      "final_l2_call": {
+       "mp60": [
+        -2.5716247861923654e-06,
+        -7.592020272382468e-06,
+        -1.2252918829937635e-05,
+        -1.6343280375073828e-05,
+        -1.969187953645046e-05
+       ]
+      },
+      "accepted": {
+       "mp60": [
+        -2.5716489980978697e-06,
+        -7.592092456485507e-06,
+        -1.2253037611253726e-05,
+        -1.6343443409276526e-05,
+        -1.9692083442576122e-05
+       ]
+      }
+     }
+    },
+    {
+     "GK1": {
+      "primary": {
+       "pred": [
+        3.2109868189803397e-10,
+        3.171102706952591e-10,
+        3.0902530707890427e-10,
+        2.966437195537642e-10,
+        2.797048549066566e-10
+       ],
+       "measured": [
+        3.2109868670464873e-10,
+        3.1711028025709266e-10,
+        3.0902531497316175e-10,
+        2.9664371125898554e-10,
+        2.7970485687863015e-10
+       ],
+       "residual": [
+        4.8066147593343065e-18,
+        9.56183358188582e-18,
+        7.894257474409982e-18,
+        -8.294778637200888e-18,
+        1.9719735581128882e-18
+       ]
+      },
+      "accepted": {
+       "pred": [
+        1.8332593236779304e-10,
+        1.7965523794206828e-10,
+        1.722395413244731e-10,
+        1.6094514843764706e-10,
+        1.456074829940692e-10
+       ],
+       "measured": [
+        1.8332592310193686e-10,
+        1.7965525395440673e-10,
+        1.7223956470643468e-10,
+        1.6094512904383253e-10,
+        1.4560745561278058e-10
+       ],
+       "residual": [
+        -9.265856183649705e-18,
+        1.6012338442048238e-17,
+        2.3381961576030137e-17,
+        -1.9393814529061684e-17,
+        -2.7381288589362707e-17
+       ]
+      }
+     },
+     "rounding_share": {
+      "M_from_rounding_band": [
+       7.488360155028047e-16,
+       -1.9994369158747719e-16,
+       -3.485650231226126e-16,
+       1.342692054888711e-16
+      ],
+      "dM_step_band": [
+       -3.425983022262483e-08,
+       -5.625695569398047e-08,
+       -7.691432901598674e-08,
+       -9.564733662026632e-08
+      ],
+      "band_rms_ratio": 6.176741876358269e-09,
+      "native_sign_change_fraction": 0.5668789808917197,
+      "per_call": {
+       "stage0_primary_l2": {
+        "K_rms_interior": 4.2656646149336376e-14,
+        "Aa_rms_interior": 4.375480058435971e-14
+       },
+       "final_l2_primary_l2": {
+        "K_rms_interior": 4.1145385672418426e-14,
+        "Aa_rms_interior": 3.831749157378281e-14
+       },
+       "stage0_primary_l3": {
+        "K_rms_interior": 2.4025722562495775e-20,
+        "Aa_rms_interior": 3.1320544065472325e-21
+       },
+       "primary_primary_l3": {
+        "K_rms_interior": 1.7720737932665732e-20,
+        "Aa_rms_interior": 5.3815806224385764e-21
+       }
+      }
+     },
+     "K_prime": {
+      "start": {
+       "mp60": [
+        -2.5392598907042647e-06,
+        -7.495869183641422e-06,
+        -1.209586413651306e-05,
+        -1.6130274698378068e-05,
+        -1.9430126375593894e-05
+       ]
+      },
+      "stage0": {
+       "mp60": [
+        -2.5392598907042647e-06,
+        -7.495869183641422e-06,
+        -1.209586413651306e-05,
+        -1.6130274698378068e-05,
+        -1.9430126375593894e-05
+       ]
+      },
+      "explicit_predictor": {
+       "mp60": [
+        -2.5392598907042647e-06,
+        -7.495869183641422e-06,
+        -1.209586413651306e-05,
+        -1.6130274698378068e-05,
+        -1.9430126375593894e-05
+       ]
+      },
+      "primary": {
+       "mp60": [
+        -2.5392334214972682e-06,
+        -7.495789036976528e-06,
+        -1.209572820459955e-05,
+        -1.613007982468859e-05,
+        -1.942986887003066e-05
+       ]
+      },
+      "final_l2_call": {
+       "mp60": [
+        -2.5392334214972682e-06,
+        -7.495789036976528e-06,
+        -1.209572820459955e-05,
+        -1.613007982468859e-05,
+        -1.942986887003066e-05
+       ]
+      },
+      "accepted": {
+       "mp60": [
+        -2.539235502188784e-06,
+        -7.495795505782416e-06,
+        -1.2095739733699953e-05,
+        -1.6130097505280088e-05,
+        -1.9429894164450263e-05
+       ]
+      }
+     }
+    }
+   ]
+  },
+  "T2-4": {
+   "saves": [],
+   "steps": [
+    {
+     "GK1": {
+      "primary": {
+       "pred": [
+        2.628369719900287e-09,
+        2.5741550289020692e-09,
+        2.489057815945122e-09,
+        2.365926587979023e-09,
+        2.2096782588872194e-09
+       ],
+       "measured": [
+        2.628369720779354e-09,
+        2.574155037582936e-09,
+        2.4890577765185946e-09,
+        2.365926592386176e-09,
+        2.2096782863301352e-09
+       ],
+       "residual": [
+        8.790667572463352e-19,
+        8.680866248633799e-18,
+        -3.942652711448373e-17,
+        4.407152857740312e-18,
+        2.7442915749752384e-17
+       ]
+      },
+      "accepted": {
+       "pred": [
+        2.6574196385527716e-09,
+        2.602640521213974e-09,
+        2.516658300049638e-09,
+        2.3922487203703358e-09,
+        2.234382039058834e-09
+       ],
+       "measured": [
+        2.657419501959555e-09,
+        2.60264054710271e-09,
+        2.516658257576895e-09,
+        2.392248654481749e-09,
+        2.2343820733515797e-09
+       ],
+       "residual": [
+        -1.3659321673900475e-16,
+        2.5888735701751975e-17,
+        -4.247274255038879e-17,
+        -6.588858686849807e-17,
+        3.429274548119729e-17
+       ]
+      }
+     },
+     "rounding_share": {
+      "M_from_rounding_band": [
+       1.1016376298938701e-15,
+       -5.067229522450131e-16,
+       -4.531002869090183e-16,
+       -1.3905543997692177e-16
+      ],
+      "dM_step_band": [
+       -9.184750827745442e-06,
+       -1.4432353680451256e-05,
+       -1.925410603338982e-05,
+       -2.3414837235365803e-05
+      ],
+      "band_rms_ratio": 3.74025770587628e-11,
+      "native_sign_change_fraction": 0.5173501577287066,
+      "per_call": {
+       "stage0_primary_l2": {
+        "K_rms_interior": 1.482215077984604e-13,
+        "Aa_rms_interior": 1.5017586516698704e-13
+       },
+       "final_l2_primary_l2": {
+        "K_rms_interior": 1.4341077032803307e-13,
+        "Aa_rms_interior": 1.6983607661452351e-13
+       },
+       "stage0_primary_l3": {
+        "K_rms_interior": 2.3738954919913075e-19,
+        "Aa_rms_interior": 4.724416178753425e-19
+       },
+       "primary_primary_l3": {
+        "K_rms_interior": 2.8774429716284095e-19,
+        "Aa_rms_interior": 5.670049321303302e-19
+       }
+      }
+     },
+     "K_prime": {
+      "start": {
+       "mp60": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "stage0": {
+       "mp60": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "explicit_predictor": {
+       "mp60": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+       ]
+      },
+      "primary": {
+       "mp60": [
+        1.4634089636703907e-10,
+        9.087753114460102e-10,
+        1.4246605546468195e-09,
+        1.893861985222202e-09,
+        2.291900856443013e-09
+       ]
+      },
+      "final_l2_call": {
+       "mp60": [
+        1.4634089636703907e-10,
+        9.087753114460102e-10,
+        1.4246605546468195e-09,
+        1.893861985222202e-09,
+        2.291900856443013e-09
+       ]
+      },
+      "accepted": {
+       "mp60": [
+        1.4786091125789867e-10,
+        9.182332856626426e-10,
+        1.4394681966475152e-09,
+        1.9135035536149877e-09,
+        2.3156062091604674e-09
+       ]
+      }
+     }
+    },
+    {
+     "GK1": {
+      "primary": {
+       "pred": [
+        -4.750885648131661e-08,
+        -4.646133999477577e-08,
+        -4.482179500494472e-08,
+        -4.2459839779019606e-08,
+        -3.948118061871735e-08
+       ],
+       "measured": [
+        -4.750885641593984e-08,
+        -4.6461339929542004e-08,
+        -4.482179498917025e-08,
+        -4.24598398234398e-08,
+        -3.948118065028739e-08
+       ],
+       "residual": [
+        6.537676896105528e-17,
+        6.52337719682275e-17,
+        1.5774474427075762e-17,
+        -4.442019258303753e-17,
+        -3.15700393363806e-17
+       ]
+      },
+      "accepted": {
+       "pred": [
+        -2.3228748390625613e-08,
+        -2.2568444957283933e-08,
+        -2.1538845363921444e-08,
+        -2.0064278695136662e-08,
+        -1.822038438989429e-08
+       ],
+       "measured": [
+        -2.3228748651410577e-08,
+        -2.2568444972744925e-08,
+        -2.153884532502331e-08,
+        -2.0064278709742376e-08,
+        -1.8220384357162444e-08
+       ],
+       "residual": [
+        -2.6078496371307457e-16,
+        -1.5460987221372153e-17,
+        3.889813593879344e-17,
+        -1.4605713322317156e-17,
+        3.2731845583250644e-17
+       ]
+      }
+     },
+     "rounding_share": {
+      "M_from_rounding_band": [
+       -2.0112751457565877e-15,
+       1.2347769280590155e-15,
+       -9.845290216384442e-16,
+       1.1892786919787398e-15
+      ],
+      "dM_step_band": [
+       3.0408965208098195e-06,
+       4.733425542027303e-06,
+       6.2250129876598026e-06,
+       7.423036791451655e-06
+      ],
+      "band_rms_ratio": 2.51739597029405e-10,
+      "native_sign_change_fraction": 0.5236593059936908,
+      "per_call": {
+       "stage0_primary_l2": {
+        "K_rms_interior": 1.537733245677355e-13,
+        "Aa_rms_interior": 1.5603171290285564e-13
+       },
+       "final_l2_primary_l2": {
+        "K_rms_interior": 1.5330163623639253e-13,
+        "Aa_rms_interior": 1.7643173777221553e-13
+       },
+       "stage0_primary_l3": {
+        "K_rms_interior": 1.7221849086854124e-18,
+        "Aa_rms_interior": 2.3646673923920907e-19
+       },
+       "primary_primary_l3": {
+        "K_rms_interior": 1.6238063667913129e-18,
+        "Aa_rms_interior": 2.250748983337354e-19
+       }
+      }
+     },
+     "K_prime": {
+      "start": {
+       "mp60": [
+        -5.116370555461481e-07,
+        -3.1548833350839425e-06,
+        -4.8913095059968326e-06,
+        -6.393404816775258e-06,
+        -7.560676578098231e-06
+       ]
+      },
+      "stage0": {
+       "mp60": [
+        -5.116370555461481e-07,
+        -3.1548833350839425e-06,
+        -4.8913095059968326e-06,
+        -6.393404816775258e-06,
+        -7.560676578098231e-06
+       ]
+      },
+      "explicit_predictor": {
+       "mp60": [
+        -5.116370555461481e-07,
+        -3.1548833350839425e-06,
+        -4.8913095059968326e-06,
+        -6.393404816775258e-06,
+        -7.560676578098231e-06
+       ]
+      },
+      "primary": {
+       "mp60": [
+        -5.144678229210626e-07,
+        -3.172423155663837e-06,
+        -4.918709943346452e-06,
+        -6.429636682403788e-06,
+        -7.604210275265913e-06
+       ]
+      },
+      "final_l2_call": {
+       "mp60": [
+        -5.144678229210626e-07,
+        -3.172423155663837e-06,
+        -4.918709943346452e-06,
+        -6.429636682403788e-06,
+        -7.604210275265913e-06
+       ]
+      },
+      "accepted": {
+       "mp60": [
+        -5.134241850523943e-07,
+        -3.165923636610841e-06,
+        -4.908476136648429e-06,
+        -6.415942594816434e-06,
+        -7.58749047419864e-06
+       ]
+      }
+     }
+    },
+    {
+     "GK1": {
+      "primary": {
+       "pred": [
+        -1.8583653680329496e-08,
+        -1.826139888768787e-08,
+        -1.7753518625074845e-08,
+        -1.701395229864195e-08,
+        -1.6066963766435343e-08
+       ],
+       "measured": [
+        -1.8583653804605786e-08,
+        -1.8261398973007676e-08,
+        -1.7753518587588248e-08,
+        -1.7013952351804263e-08,
+        -1.6066963686959654e-08
+       ],
+       "residual": [
+        -1.2427629020934672e-16,
+        -8.531980200443342e-17,
+        3.7486601182736076e-17,
+        -5.31623107545259e-17,
+        7.947568658533823e-17
+       ]
+      },
+      "accepted": {
+       "pred": [
+        -2.7715608993684952e-08,
+        -2.7117041968917386e-08,
+        -2.6177365372400534e-08,
+        -2.4817320859420714e-08,
+        -2.309083141172602e-08
+       ],
+       "measured": [
+        -2.771560916861748e-08,
+        -2.7117041960282116e-08,
+        -2.6177365392646332e-08,
+        -2.4817320882935788e-08,
+        -2.309083142088544e-08
+       ],
+       "residual": [
+        -1.7493252982835117e-16,
+        8.635271075184691e-18,
+        -2.0245798835115615e-17,
+        -2.3515074212365034e-17,
+        -9.15941864475809e-18
+       ]
+      }
+     },
+     "rounding_share": {
+      "M_from_rounding_band": [
+       -2.3243415598548326e-16,
+       -1.5712641032105703e-15,
+       1.7170994136576302e-15,
+       -7.480809717459823e-16
+      ],
+      "dM_step_band": [
+       6.419962422036231e-06,
+       1.0160836886613336e-05,
+       1.3700378996330676e-05,
+       1.6896819391246245e-05
+      ],
+      "band_rms_ratio": 9.881382307829653e-11,
+      "native_sign_change_fraction": 0.526813880126183,
+      "per_call": {
+       "stage0_primary_l2": {
+        "K_rms_interior": 1.563734114411152e-13,
+        "Aa_rms_interior": 1.6501019823657428e-13
+       },
+       "final_l2_primary_l2": {
+        "K_rms_interior": 1.4954245053029685e-13,
+        "Aa_rms_interior": 1.4671011913474754e-13
+       },
+       "stage0_primary_l3": {
+        "K_rms_interior": 3.135406395168232e-18,
+        "Aa_rms_interior": 1.883744693048217e-20
+       },
+       "primary_primary_l3": {
+        "K_rms_interior": 2.0091921908823466e-18,
+        "Aa_rms_interior": 1.9151443815612857e-20
+       }
+      }
+     },
+     "K_prime": {
+      "start": {
+       "mp60": [
+        -2.1624690618753314e-06,
+        -1.3376670136498551e-05,
+        -2.0844263746283405e-05,
+        -2.745632686821126e-05,
+        -3.281397702153177e-05
+       ]
+      },
+      "stage0": {
+       "mp60": [
+        -2.1624690618753314e-06,
+        -1.3376670136498551e-05,
+        -2.0844263746283405e-05,
+        -2.745632686821126e-05,
+        -3.281397702153177e-05
+       ]
+      },
+      "explicit_predictor": {
+       "mp60": [
+        -2.1624690618753314e-06,
+        -1.3376670136498551e-05,
+        -2.0844263746283405e-05,
+        -2.745632686821126e-05,
+        -3.281397702153177e-05
+       ]
+      },
+      "primary": {
+       "mp60": [
+        -2.163337731386718e-06,
+        -1.3382080144245029e-05,
+        -2.0852788114724435e-05,
+        -2.7467746194619627e-05,
+        -3.2827941074870194e-05
+       ]
+      },
+      "final_l2_call": {
+       "mp60": [
+        -2.163337731386718e-06,
+        -1.3382080144245029e-05,
+        -2.0852788114724435e-05,
+        -2.7467746194619627e-05,
+        -3.2827941074870194e-05
+       ]
+      },
+      "accepted": {
+       "mp60": [
+        -2.1640848955701897e-06,
+        -1.338670401327616e-05,
+        -2.0859997221257327e-05,
+        -2.7477248973413885e-05,
+        -3.283930699007913e-05
+       ]
+      }
+     }
+    },
+    {
+     "GK1": {
+      "primary": {
+       "pred": [
+        1.6093454887804527e-08,
+        1.5809794693852188e-08,
+        1.5361721295434368e-08,
+        1.470720546018299e-08,
+        1.3865852665610041e-08
+       ],
+       "measured": [
+        1.6093455189598376e-08,
+        1.5809794794382485e-08,
+        1.5361721246844118e-08,
+        1.4707205364169057e-08,
+        1.3865852705216875e-08
+       ],
+       "residual": [
+        3.0179384878743226e-16,
+        1.0053029881571506e-16,
+        -4.859024993071745e-17,
+        -9.601393168847586e-17,
+        3.960683263036214e-17
+       ]
+      },
+      "accepted": {
+       "pred": [
+        -1.2379708699161708e-09,
+        -1.3044623739449727e-09,
+        -1.4073081153950883e-09,
+        -1.5525973744000161e-09,
+        -1.7303311748303634e-09
+       ],
+       "measured": [
+        -1.237970622368067e-09,
+        -1.3044623461323098e-09,
+        -1.4073082092619591e-09,
+        -1.5525974479685768e-09,
+        -1.7303310890625372e-09
+       ],
+       "residual": [
+        2.475481037748022e-16,
+        2.7812663021712424e-17,
+        -9.386687075498333e-17,
+        -7.35685604867097e-17,
+        8.576782618089843e-17
+       ]
+      }
+     },
+     "rounding_share": {
+      "M_from_rounding_band": [
+       -2.0521485950637087e-15,
+       1.5955405090684351e-15,
+       -1.8318890619854434e-15,
+       -1.4329838665418977e-16
+      ],
+      "dM_step_band": [
+       -3.49086377894409e-06,
+       -5.4300003804674264e-06,
+       -7.131355068904398e-06,
+       -8.482932926928258e-06
+      ],
+      "band_rms_ratio": 2.4820560824153396e-10,
+      "native_sign_change_fraction": 0.5236593059936908,
+      "per_call": {
+       "stage0_primary_l2": {
+        "K_rms_interior": 1.4775984126351447e-13,
+        "Aa_rms_interior": 1.5666154513624837e-13
+       },
+       "final_l2_primary_l2": {
+        "K_rms_interior": 1.528067768957898e-13,
+        "Aa_rms_interior": 1.6475615670039227e-13
+       },
+       "stage0_primary_l3": {
+        "K_rms_interior": 8.747139800946454e-19,
+        "Aa_rms_interior": 1.7375264230665053e-19
+       },
+       "primary_primary_l3": {
+        "K_rms_interior": 8.802529692633233e-19,
+        "Aa_rms_interior": 2.1756762196161576e-19
+       }
+      }
+     },
+     "K_prime": {
+      "start": {
+       "mp60": [
+        -2.630335982691731e-06,
+        -1.6298209588838186e-05,
+        -2.5466632950524214e-05,
+        -3.36866557542266e-05,
+        -4.0495146961619575e-05
+       ]
+      },
+      "stage0": {
+       "mp60": [
+        -2.630335982691731e-06,
+        -1.6298209588838186e-05,
+        -2.5466632950524214e-05,
+        -3.36866557542266e-05,
+        -4.0495146961619575e-05
+       ]
+      },
+      "explicit_predictor": {
+       "mp60": [
+        -2.630335982691731e-06,
+        -1.6298209588838186e-05,
+        -2.5466632950524214e-05,
+        -3.36866557542266e-05,
+        -4.0495146961619575e-05
+       ]
+      },
+      "primary": {
+       "mp60": [
+        -2.6295723850664593e-06,
+        -1.6293443015349924e-05,
+        -2.5459102605239712e-05,
+        -3.3676531762271255e-05,
+        -4.048271528252201e-05
+       ]
+      },
+      "final_l2_call": {
+       "mp60": [
+        -2.6295723850664593e-06,
+        -1.6293443015349924e-05,
+        -2.5459102605239712e-05,
+        -3.3676531762271255e-05,
+        -4.048271528252201e-05
+       ]
+      },
+      "accepted": {
+       "mp60": [
+        -2.6301555061632787e-06,
+        -1.629710114279372e-05,
+        -2.5464927201427807e-05,
+        -3.368445495001158e-05,
+        -4.049259865946657e-05
+       ]
+      }
+     }
+    },
+    {
+     "GK1": {
+      "primary": {
+       "pred": [
+        -8.905682865937944e-10,
+        -6.912906330038296e-10,
+        -3.836404420455934e-10,
+        4.9953124828501355e-11,
+        5.791411576754969e-10
+       ],
+       "measured": [
+        -8.905682553377336e-10,
+        -6.912907621281683e-10,
+        -3.83640420071432e-10,
+        4.9953064908217336e-11,
+        5.79141184404996e-10
+       ],
+       "residual": [
+        3.125606076230978e-17,
+        -1.2912433863978358e-16,
+        2.197416137715217e-17,
+        -5.992028403341323e-17,
+        2.6729499024797964e-17
+       ]
+      },
+      "accepted": {
+       "pred": [
+        1.5303018177186157e-10,
+        2.486500822648922e-10,
+        3.9374929049455345e-10,
+        5.926022612581195e-10,
+        8.250535029094522e-10
+       ],
+       "measured": [
+        1.5303025066916297e-10,
+        2.48650054583097e-10,
+        3.937492937154953e-10,
+        5.926022591577969e-10,
+        8.250535049403001e-10
+       ],
+       "residual": [
+        6.889730139856804e-17,
+        -2.768179520980312e-17,
+        3.2209418432111948e-18,
+        -2.1003226066865354e-18,
+        2.030847795249535e-18
+       ]
+      }
+     },
+     "rounding_share": {
+      "M_from_rounding_band": [
+       2.4389475914377647e-16,
+       7.457668980669824e-16,
+       -2.4566334315272015e-16,
+       3.486188997819463e-17
+      ],
+      "dM_step_band": [
+       -2.1459656741428903e-06,
+       -3.460061877213184e-06,
+       -4.79135242969312e-06,
+       -6.112999653173364e-06
+      ],
+      "band_rms_ratio": 9.384103518549782e-11,
+      "native_sign_change_fraction": 0.5047318611987381,
+      "per_call": {
+       "stage0_primary_l2": {
+        "K_rms_interior": 1.5607461704245006e-13,
+        "Aa_rms_interior": 1.732663846614341e-13
+       },
+       "final_l2_primary_l2": {
+        "K_rms_interior": 1.5591435377925044e-13,
+        "Aa_rms_interior": 1.5520417291991876e-13
+       },
+       "stage0_primary_l3": {
+        "K_rms_interior": 1.5461165941755004e-19,
+        "Aa_rms_interior": 2.077184888122429e-19
+       },
+       "primary_primary_l3": {
+        "K_rms_interior": 1.762895261205986e-19,
+        "Aa_rms_interior": 1.9694246924964977e-19
+       }
+      }
+     },
+     "K_prime": {
+      "start": {
+       "mp60": [
+        -2.575905416509302e-06,
+        -1.5940472135918177e-05,
+        -2.485878100026922e-05,
+        -3.278673438809057e-05,
+        -3.926160587613928e-05
+       ]
+      },
+      "stage0": {
+       "mp60": [
+        -2.575905416509302e-06,
+        -1.5940472135918177e-05,
+        -2.485878100026922e-05,
+        -3.278673438809057e-05,
+        -3.926160587613928e-05
+       ]
+      },
+      "explicit_predictor": {
+       "mp60": [
+        -2.575905416509302e-06,
+        -1.5940472135918177e-05,
+        -2.485878100026922e-05,
+        -3.278673438809057e-05,
+        -3.926160587613928e-05
+       ]
+      },
+      "primary": {
+       "mp60": [
+        -2.5764469214353176e-06,
+        -1.5943791506832234e-05,
+        -2.4863878232705095e-05,
+        -3.279329441330824e-05,
+        -3.926918660292374e-05
+       ]
+      },
+      "final_l2_call": {
+       "mp60": [
+        -2.5764469214353176e-06,
+        -1.5943791506832234e-05,
+        -2.4863878232705095e-05,
+        -3.279329441330824e-05,
+        -3.926918660292374e-05
+       ]
+      },
+      "accepted": {
+       "mp60": [
+        -2.5761670324920366e-06,
+        -1.5942054495518457e-05,
+        -2.4861158738245782e-05,
+        -3.278968912190906e-05,
+        -3.926484578164808e-05
+       ]
+      }
+     }
+    },
+    {
+     "GK1": {
+      "primary": {
+       "pred": [
+        -7.237029757849909e-09,
+        -7.132588751332125e-09,
+        -6.964888329146834e-09,
+        -6.7138901488089454e-09,
+        -6.380520979190788e-09
+       ],
+       "measured": [
+        -7.2370296798973986e-09,
+        -7.13258872510336e-09,
+        -6.96488830994116e-09,
+        -6.713890182714459e-09,
+        -6.3805209669438565e-09
+       ],
+       "residual": [
+        7.79525107918041e-17,
+        2.6228766188706232e-17,
+        1.920567366952219e-17,
+        -3.39055133030884e-17,
+        1.2246931572650484e-17
+       ]
+      },
+      "accepted": {
+       "pred": [
+        -4.69541264791934e-09,
+        -4.5819589723995806e-09,
+        -4.402214293963963e-09,
+        -4.1385365462088e-09,
+        -3.7977669481853416e-09
+       ],
+       "measured": [
+        -4.695412590103207e-09,
+        -4.581958865146624e-09,
+        -4.402214324154934e-09,
+        -4.138536553362047e-09,
+        -3.797766907261441e-09
+       ],
+       "residual": [
+        5.781613302152869e-17,
+        1.0725295618286291e-16,
+        -3.0190970701274894e-17,
+        -7.1532471238712e-18,
+        4.092390092699888e-17
+       ]
+      }
+     },
+     "rounding_share": {
+      "M_from_rounding_band": [
+       1.788146943702896e-15,
+       9.349791343820675e-16,
+       -1.0341360793403381e-15,
+       -1.896367417810573e-17
+      ],
+      "dM_step_band": [
+       1.1062104380515047e-06,
+       1.731879745529827e-06,
+       2.2951395463607055e-06,
+       2.76013078823696e-06
+      ],
+      "band_rms_ratio": 5.481878140997084e-10,
+      "native_sign_change_fraction": 0.5615141955835962,
+      "per_call": {
+       "stage0_primary_l2": {
+        "K_rms_interior": 1.5145404645413661e-13,
+        "Aa_rms_interior": 1.6238469904214883e-13
+       },
+       "final_l2_primary_l2": {
+        "K_rms_interior": 1.526779212314354e-13,
+        "Aa_rms_interior": 1.7086065782277033e-13
+       },
+       "stage0_primary_l3": {
+        "K_rms_interior": 2.8621032997399165e-19,
+        "Aa_rms_interior": 1.0781155257299168e-19
+       },
+       "primary_primary_l3": {
+        "K_rms_interior": 2.783243095605374e-19,
+        "Aa_rms_interior": 1.2718172958267354e-19
+       }
+      }
+     },
+     "K_prime": {
+      "start": {
+       "mp60": [
+        -2.8813305375466983e-06,
+        -1.7825885135495165e-05,
+        -2.7786179187823675e-05,
+        -3.6619322148063125e-05,
+        -4.379867023322784e-05
+       ]
+      },
+      "stage0": {
+       "mp60": [
+        -2.8813305375466983e-06,
+        -1.7825885135495165e-05,
+        -2.7786179187823675e-05,
+        -3.6619322148063125e-05,
+        -4.379867023322784e-05
+       ]
+      },
+      "explicit_predictor": {
+       "mp60": [
+        -2.8813305375466983e-06,
+        -1.7825885135495165e-05,
+        -2.7786179187823675e-05,
+        -3.6619322148063125e-05,
+        -4.379867023322784e-05
+       ]
+      },
+      "primary": {
+       "mp60": [
+        -2.8816097753125074e-06,
+        -1.7827651301774307e-05,
+        -2.778902552450516e-05,
+        -3.662326049726635e-05,
+        -4.3803686486878316e-05
+       ]
+      },
+      "final_l2_call": {
+       "mp60": [
+        -2.8816097753125074e-06,
+        -1.7827651301774307e-05,
+        -2.778902552450516e-05,
+        -3.662326049726635e-05,
+        -4.3803686486878316e-05
+       ]
+      },
+      "accepted": {
+       "mp60": [
+        -2.8816355693697157e-06,
+        -1.7827793797803667e-05,
+        -2.7789205312456467e-05,
+        -3.662341059469409e-05,
+        -4.380371963470031e-05
+       ]
+      }
+     }
+    },
+    {
+     "GK1": {
+      "primary": {
+       "pred": [
+        8.081908028240715e-11,
+        2.4936088504524895e-11,
+        -6.26646176335736e-11,
+        -1.8904813120201953e-10,
+        -3.4847047940321504e-10
+       ],
+       "measured": [
+        8.081885414127331e-11,
+        2.4936098127474422e-11,
+        -6.266457350128207e-11,
+        -1.890481060860208e-10,
+        -3.4847048125918913e-10
+       ],
+       "residual": [
+        -2.261411338416721e-16,
+        9.622949529350519e-18,
+        4.41322915508698e-17,
+        2.511599871870717e-17,
+        -1.855974089479644e-18
+       ]
+      },
+      "accepted": {
+       "pred": [
+        -1.4122272607899184e-09,
+        -1.4246380336803096e-09,
+        -1.4432219174587764e-09,
+        -1.4680290975599947e-09,
+        -1.4955555557158066e-09
+       ],
+       "measured": [
+        -1.4122274139055043e-09,
+        -1.4246381337607395e-09,
+        -1.4432218784422063e-09,
+        -1.4680290685015716e-09,
+        -1.4955555605597498e-09
+       ],
+       "residual": [
+        -1.5311558595795917e-16,
+        -1.0008043009199642e-16,
+        3.901657005879569e-17,
+        2.905842305197899e-17,
+        -4.843943249506939e-18
+       ]
+      }
+     },
+     "rounding_share": {
+      "M_from_rounding_band": [
+       -2.665391791043497e-15,
+       3.169732993825398e-16,
+       1.8833296313098938e-16,
+       7.263719701934747e-16
+      ],
+      "dM_step_band": [
+       1.7019076837630262e-07,
+       2.932513189619221e-07,
+       4.43443784283744e-07,
+       6.264495761126107e-07
+      ],
+      "band_rms_ratio": 3.3216319135923675e-09,
+      "native_sign_change_fraction": 0.5205047318611987,
+      "per_call": {
+       "stage0_primary_l2": {
+        "K_rms_interior": 1.4933252920921192e-13,
+        "Aa_rms_interior": 1.479487303449808e-13
+       },
+       "final_l2_primary_l2": {
+        "K_rms_interior": 1.532696232711347e-13,
+        "Aa_rms_interior": 1.659846385039984e-13
+       },
+       "stage0_primary_l3": {
+        "K_rms_interior": 3.2798330161139445e-19,
+        "Aa_rms_interior": 6.168225548886955e-20
+       },
+       "primary_primary_l3": {
+        "K_rms_interior": 2.743321807952587e-19,
+        "Aa_rms_interior": 6.329054412090835e-20
+       }
+      }
+     },
+     "K_prime": {
+      "start": {
+       "mp60": [
+        -2.967604386249428e-06,
+        -1.8374300963035557e-05,
+        -2.8676897470103186e-05,
+        -3.7865778563605625e-05,
+        -4.540950132188692e-05
+       ]
+      },
+      "stage0": {
+       "mp60": [
+        -2.967604386249428e-06,
+        -1.8374300963035557e-05,
+        -2.8676897470103186e-05,
+        -3.7865778563605625e-05,
+        -4.540950132188692e-05
+       ]
+      },
+      "explicit_predictor": {
+       "mp60": [
+        -2.967604386249428e-06,
+        -1.8374300963035557e-05,
+        -2.8676897470103186e-05,
+        -3.7865778563605625e-05,
+        -4.540950132188692e-05
+       ]
+      },
+      "primary": {
+       "mp60": [
+        -2.96745349708265e-06,
+        -1.8373364619125815e-05,
+        -2.8675432356580146e-05,
+        -3.786383896697893e-05,
+        -4.540717295857703e-05
+       ]
+      },
+      "final_l2_call": {
+       "mp60": [
+        -2.96745349708265e-06,
+        -1.8373364619125815e-05,
+        -2.8675432356580146e-05,
+        -3.786383896697893e-05,
+        -4.540717295857703e-05
+       ]
+      },
+      "accepted": {
+       "mp60": [
+        -2.967570280984527e-06,
+        -1.8374096541347267e-05,
+        -2.8676595809182852e-05,
+        -3.786541711742637e-05,
+        -4.5409132786139375e-05
+       ]
+      }
+     }
+    },
+    {
+     "GK1": {
+      "primary": {
+       "pred": [
+        1.7226099378319185e-09,
+        1.7063045319695325e-09,
+        1.6795991681076898e-09,
+        1.6384444312925767e-09,
+        1.5816129801285703e-09
+       ],
+       "measured": [
+        1.7226099750348798e-09,
+        1.7063044832732936e-09,
+        1.6795991734430248e-09,
+        1.6384444751565333e-09,
+        1.5816129473174522e-09
+       ],
+       "residual": [
+        3.720296131514251e-17,
+        -4.869623878765334e-17,
+        5.335335006001932e-18,
+        4.386395663028858e-17,
+        -3.281111777741906e-17
+       ]
+      },
+      "accepted": {
+       "pred": [
+        4.149764359048889e-10,
+        4.0327625798491153e-10,
+        3.843193661462917e-10,
+        3.555688063625134e-10,
+        3.1670845877790517e-10
+       ],
+       "measured": [
+        4.149765678155454e-10,
+        4.0327627451185723e-10,
+        3.843193755120762e-10,
+        3.5556877874262905e-10,
+        3.167083976567335e-10
+       ],
+       "residual": [
+        1.319106565308817e-16,
+        1.652694571026907e-17,
+        9.365784489740949e-18,
+        -2.7619884356841878e-17,
+        -6.112117171053212e-17
+       ]
+      }
+     },
+     "rounding_share": {
+      "M_from_rounding_band": [
+       1.5339240599808543e-15,
+       6.424223136500616e-17,
+       -1.0032121900320453e-15,
+       4.912042065063556e-16
+      ],
+      "dM_step_band": [
+       -3.3785436078876503e-07,
+       -5.355496947452137e-07,
+       -7.231987541565309e-07,
+       -8.925200990587751e-07
+      ],
+      "band_rms_ratio": 1.447447062057607e-09,
+      "native_sign_change_fraction": 0.5488958990536278,
+      "per_call": {
+       "stage0_primary_l2": {
+        "K_rms_interior": 1.5317024824137278e-13,
+        "Aa_rms_interior": 1.6770222351341394e-13
+       },
+       "final_l2_primary_l2": {
+        "K_rms_interior": 1.4451075031546973e-13,
+        "Aa_rms_interior": 1.5817704448071105e-13
+       },
+       "stage0_primary_l3": {
+        "K_rms_interior": 1.7959314385282827e-19,
+        "Aa_rms_interior": 3.6433986072722474e-20
+       },
+       "primary_primary_l3": {
+        "K_rms_interior": 2.0620065861928988e-19,
+        "Aa_rms_interior": 3.686426520637558e-20
+       }
+      }
+     },
+     "K_prime": {
+      "start": {
+       "mp60": [
+        -2.9287753467696975e-06,
+        -1.8132251539682257e-05,
+        -2.8295599461662505e-05,
+        -3.735601394408324e-05,
+        -4.4789778314528076e-05
+       ]
+      },
+      "stage0": {
+       "mp60": [
+        -2.9287753467696975e-06,
+        -1.8132251539682257e-05,
+        -2.8295599461662505e-05,
+        -3.735601394408324e-05,
+        -4.4789778314528076e-05
+       ]
+      },
+      "explicit_predictor": {
+       "mp60": [
+        -2.9287753467696975e-06,
+        -1.8132251539682257e-05,
+        -2.8295599461662505e-05,
+        -3.735601394408324e-05,
+        -4.4789778314528076e-05
+       ]
+      },
+      "primary": {
+       "mp60": [
+        -2.928732112486808e-06,
+        -1.813197368389472e-05,
+        -2.8295140811185343e-05,
+        -3.735535714255509e-05,
+        -4.47889046610619e-05
+       ]
+      },
+      "final_l2_call": {
+       "mp60": [
+        -2.928732112486808e-06,
+        -1.813197368389472e-05,
+        -2.8295140811185343e-05,
+        -3.735535714255509e-05,
+        -4.47889046610619e-05
+       ]
+      },
+      "accepted": {
+       "mp60": [
+        -2.9287441832654088e-06,
+        -1.8132052989281134e-05,
+        -2.8295275978794772e-05,
+        -3.735555934983363e-05,
+        -4.478918794817811e-05
+       ]
+      }
+     }
+    }
+   ]
+  }
+ }
+}
