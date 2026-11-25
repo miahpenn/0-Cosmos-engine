@@ -137,8 +137,8 @@ def g24(run, fl):
                         "counted": abs(m) >= 10 * abs(F) and abs(R_PTS[p] * dh / 4) >= 10 * abs(F),
                         "pass": abs(Q) <= 0.5})
     out = verdict(ins)
-    out["counting_note"] = ("counted where |M| and |r d_tH / 4| are both >= 10 x the 1a M floor (no 1a d_tH floor "
-                            "exists): Wright's reading, for Lumen^2 to confirm")
+    out["counting_note"] = ("counted where |M| and |r d_tH / 4| are both >= 10 x the 1a M floor: the M-floor proxy "
+                            "(A22 item 4), since the stage-1 1a arms stored no per-step H series")
     return out
 
 

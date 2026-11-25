@@ -145,8 +145,8 @@ def ps_rhs(g, s, S, P):
 def t2_checks(z, g, s, s_in, m, n_int, meta):
     """A2 section 2, Test 2 (with A13 section 1 for the a, b, X, Aa, K, Lambda RHS, done in input_checks)."""
     out = {}
-    # Newton residual (A2 P4). Literal reading: |H| <= 10 eps x largest top-level summand (h_largest_term).
-    # B5-form reading beside it: |H| <= 10 eps x Sum|s_k| (every summand down to the stencil weights).
+    # Newton residual (A2 P4 as fixed by A22 item 2): the gate is the B5 form, |H| <= 10 eps x Sum|s_k| per non-edge
+    # cell, summed down to the stencil weights. The literal reading (largest top-level summand) is supplementary.
     H64 = np.asarray(z["H"], dtype=float)
     Hmp = [h - 16.0 * M.PI * rho for h, rho in zip(M.hamiltonian_vac(g, s_in), m["rho"])]
     big = h_largest_term(g, s_in, m["rho"])
@@ -156,10 +156,11 @@ def t2_checks(z, g, s, s_in, m, n_int, meta):
         "literal_worst_ratio": float(np.max(lit)), "literal_cell": int(np.argmax(lit)),
         "literal_pass": bool(np.max(lit) <= 1), "literal_cells_failing": int(np.sum(lit > 1)),
         "B5_form_worst_ratio": float(np.max(b5)), "B5_form_pass": bool(np.max(b5) <= 1),
+        "pass": bool(np.max(b5) <= 1), "gate": "B5 form (A22 item 2); literal_* supplementary",
         "max_abs_H_non_edge": float(np.max(np.abs(H64[:n_int]))),
         "max_abs_H60_at_stored_X": float(max(abs(h.v) for h in Hmp[:n_int])),
         "newton_log": meta.get("newton"),
-        "note": "A2 P4's 'largest term' is not defined in the design; both readings are reported (Lumen^2 to decide)"}
+        "note": "A22 item 2: B5 form is the gate"}
     # M(0) = 0 bitwise (P_S = 0, so j = 0)
     Mz = np.asarray(z["M"], dtype=float)
     out["M0_bitwise"] = {"nonzero_cells": int(np.count_nonzero(Mz)), "pass": bool(np.count_nonzero(Mz) == 0)}
@@ -198,7 +199,8 @@ def t2_checks(z, g, s, s_in, m, n_int, meta):
         "stored_minus_analytic_fixed_points": fixed_points(meas[:n_int], float(g.dr.v)),
         "predicted_truncation_fixed_points": fixed_points(trunc[:n_int], float(g.dr.v)),
         "max_abs_predicted_truncation": float(np.max(np.abs(trunc[:n_int]))),
-        "note": "tolerance (gamma_n + u) Sum|s_k| is Wright's reading of A2 section 2; Lumen^2 to confirm"}
+        "note": "A22 item 3: gate is |stored - 60 digits on exact samples| <= (gamma_n + u) Sum|s_k|, on the same stored "
+                "X, alpha (solved), a, b as the engine call; the *_analytic and truncation entries are readings"}
     return out
 
 

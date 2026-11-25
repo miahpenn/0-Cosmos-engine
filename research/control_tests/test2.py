@@ -15,11 +15,11 @@ Aa = K = Lambda = 0 (Lambda_metric = 0 at a = b = 1); alpha = 1 as the first sol
 (ctl.make); V0 = SD_QUARTIC_LAMBDA = 0 (ctl.make). X from a Newton solve of the engine's own discrete
 H(X) - 16 pi rho(X) = 0, H from vendor constraints and rho from assemble_total_stress_energy (ctl.constraints).
 
-Newton normalisation (flagged to Lumen^2, not in the design): constant X is a null mode of the discrete H at
+Newton normalisation (confirmed by Lumen^2, A22 item 1; exact for the flat exterior psi = 1 + m/2r): constant X is a null mode of the discrete H at
 rho = 0, so the last row (an edge cell, a reading only) is replaced by r (psi - 1) = const across the last two cells,
 psi = X^(-1/2): the exterior conformal factor 1 + m/(2r). Stop: the step no longer halves the interior residual
-(the rounding floor), at most MAX_NEWTON iterations. The A2 P4 stop rule (|H| <= 10 eps x largest term) is scored
-in mp_readback, not here.
+(the rounding floor), at most MAX_NEWTON iterations. The A2 P4 stop rule, in its B5 form (A22 item 2:
+|H| <= 10 eps x Sum|s_k| per cell), is scored in mp_readback, not here.
 
 Amplitudes: T2-4 at 3e-2 (A21, Jeremiah's "Yes to both", 08:07:50 UTC); every other arm as A5.
 """
