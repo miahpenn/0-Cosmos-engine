@@ -1,0 +1,210 @@
+name: Research Stage 0c.3 exact flat replay and restricted gain
+on:
+  push:
+    branches: [research/stage0c3-flat-replay-613]
+    paths: [.github/workflows/research-stage0c3-flat-replay-613.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: research-stage0c3-flat-replay-613
+  cancel-in-progress: false
+env:
+  SOURCE_SHA: 'cbf4e6bd759271b2ca15295db8f13e570e8fa3aa'
+  VENDOR_SHA: 'd6052d605673ce9d82cdc99b0df79855fa2ea215'
+  HARNESS_SHA: '70cbe2830c9d41cebf5a4857d1ec6fcfb691d531'
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '1'
+  PYTHONUNBUFFERED: '1'
+  OUT: /tmp/stage0c3-output
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [restrict, replay]
+    env:
+      TASK: ${{ matrix.task }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cbf4e6bd759271b2ca15295db8f13e570e8fa3aa
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 70cbe2830c9d41cebf5a4857d1ec6fcfb691d531
+          path: harness
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.16'
+      - name: Verify exact source, vendor, harness and pinned runtime
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT"
+          test "$(git -C source rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_SHA"
+          test "$(git -C harness rev-parse HEAD)" = "$HARNESS_SHA"
+          test -z "$(git -C source status --porcelain --untracked-files=no)"
+          git -C source submodule status --recursive > "$OUT/submodules.txt"
+          ! grep -E '^[-+U]' "$OUT/submodules.txt"
+          python -m pip install numpy==2.5.5 scipy==1.18.1 sympy==1.14.0 mpmath==1.3.0 pytest==9.2.0 iniconfig==2.3.1 packaging==26.4 pluggy==1.7.0 pygments==2.21.0
+          python -m pip freeze > "$OUT/dependencies.txt"
+          python -c 'import sys,numpy as n; print(sys.version); n.show_runtime()' | tee "$OUT/runtime.txt"
+          lscpu > "$OUT/cpu.txt"
+          sha256sum harness/research/control_tests/stage0c3_replay.py > "$OUT/harness.sha256"
+          python -m py_compile harness/research/control_tests/stage0c3_replay.py
+      - name: Verify original artifact metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/15072268968" > "$OUT/stage0_metadata.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/15084666957" > "$OUT/stage0b_metadata.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/15140284418" > "$OUT/stage0c_metadata.json"
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          for key,id,run,digest in [
+            ("stage0",15072268968,45719840837,"38b33b7c91b32360646a8b6a757c0c289feca9228ad533965ddc253fb711a474"),
+            ("stage0b",15084666957,45746142396,"56dab6bf7ffba3a7e4b3a35ee00c22129b8619620f8f40af9f2b087ec6bb9c81"),
+            ("stage0c",15140284418,45867882034,"813b80279e59bcd10b038148c095eef1c9a47b44205c3a0cf272e15f751823da")]:
+              p=json.loads((Path(os.environ["OUT"])/(key+"_metadata.json")).read_text())
+              assert p["id"]==id and p["workflow_run"]["id"]==run and p["digest"]=="sha256:"+digest and not p["expired"]
+              print(key,id,p["digest"])
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage0-flat-1a_dr05_dt0_r8
+          path: /tmp/stage0-reference
+          run-id: 45719840837
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage0b-flat-coarse
+          path: /tmp/stage0b-reference
+          run-id: 45746142396
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: stage0c-flat-coarse-archive
+          path: /tmp/stage0c-reference
+          run-id: 45867882034
+          github-token: ${{ github.token }}
+      - name: Verify all extracted archives
+        run: |
+          set -euo pipefail
+          for key in stage0 stage0b stage0c; do
+            cd "/tmp/$key-reference"
+            sha256sum -c SHA256SUMS | tee "$OUT/${key}_checks.txt"
+            cp SHA256SUMS "$OUT/${key}_reference_SHA256SUMS"
+          done
+      - name: Run authorized flat diagnostic
+        working-directory: source
+        run: |
+          set -euo pipefail
+          export PYTHONPATH="$PWD"
+          mkdir -p "$OUT/results"
+          python ../harness/research/control_tests/stage0c3_replay.py "$TASK" /tmp/stage0-reference /tmp/stage0b-reference "$OUT/results" 2>&1 | tee "$OUT/run.log"
+          test -z "$(git status --porcelain --untracked-files=no)"
+      - name: Checksum all outputs (including incomplete diagnostics)
+        if: always()
+        run: |
+          if test -d "$OUT"; then
+            cd "$OUT"
+            find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage0c3-flat-${{ matrix.task }}
+          path: ${{ env.OUT }}
+          if-no-files-found: error
+          retention-days: 90
+
+  engine-suites:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cbf4e6bd759271b2ca15295db8f13e570e8fa3aa
+          path: source
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: 70cbe2830c9d41cebf5a4857d1ec6fcfb691d531
+          path: harness
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.16'
+      - name: Verify exact source, vendor, harness and pinned runtime
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT"
+          test "$(git -C source rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git -C source/vendor/bb-palatini-unified-r0 rev-parse HEAD)" = "$VENDOR_SHA"
+          test "$(git -C harness rev-parse HEAD)" = "$HARNESS_SHA"
+          test -z "$(git -C source status --porcelain --untracked-files=no)"
+          git -C source submodule status --recursive > "$OUT/submodules.txt"
+          ! grep -E '^[-+U]' "$OUT/submodules.txt"
+          python -m pip install numpy==2.5.5 scipy==1.18.1 sympy==1.14.0 mpmath==1.3.0 pytest==9.2.0 iniconfig==2.3.1 packaging==26.4 pluggy==1.7.0 pygments==2.21.0
+          python -m pip freeze > "$OUT/dependencies.txt"
+          python -c 'import sys,numpy as n; print(sys.version); n.show_runtime()' | tee "$OUT/runtime.txt"
+          lscpu > "$OUT/cpu.txt"
+          sha256sum harness/research/control_tests/stage0c3_replay.py > "$OUT/harness.sha256"
+          python -m py_compile harness/research/control_tests/stage0c3_replay.py
+      - name: Unchanged complete repository tests and engine controls
+        working-directory: source
+        run: |
+          set -euo pipefail
+          python -m pytest -q | tee "$OUT/pytest.txt"
+          python -m pytest -q -s tests/test_research_em_curved_energy_balance.py | tee "$OUT/em.txt"
+          python -m engine.run_controls | tee "$OUT/controls.txt"
+      - name: Existing production one-step smoke
+        working-directory: source
+        run: |
+          set -euo pipefail
+          python - <<'PY' | tee "$OUT/smoke.txt"
+          import math,numpy as np
+          from engine.production_kernel import V55ProductionKernel
+          k=V55ProductionKernel()
+          s=k.initialize(resolution=40,r_max=40.0,include_radiation=True)
+          assert math.isclose(s.t,0.,rel_tol=0.,abs_tol=1e-15)
+          dt=.03*s.grid.dr
+          u=k.step(s,dt)
+          u.geometry.assert_finite_positive()
+          assert u.t>s.t and u.history
+          def finite(x):
+              if isinstance(x,dict):
+                  for v in x.values(): finite(v)
+              elif isinstance(x,(list,tuple)):
+                  for v in x: finite(v)
+              elif isinstance(x,np.ndarray) and x.dtype.kind in "fciub": assert np.all(np.isfinite(x))
+              elif isinstance(x,(int,float,complex,np.number)): assert np.isfinite(x)
+          finite(u.history[-1])
+          print("PRODUCTION_STEP_SMOKE_PASS",u.t)
+          PY
+      - name: Checksum all outputs (including incomplete diagnostics)
+        if: always()
+        run: |
+          if test -d "$OUT"; then
+            cd "$OUT"
+            find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage0c3-engine-suites
+          path: ${{ env.OUT }}
+          if-no-files-found: error
+          retention-days: 90
