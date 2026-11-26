@@ -1,0 +1,130 @@
+name: Research Stage 0c archive-only modal attribution
+on:
+  push:
+    branches: [research/stage0c-archive-613]
+    paths: [.github/workflows/research-stage0c-archive-613.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: research-stage0c-archive-613
+  cancel-in-progress: false
+env:
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '1'
+  PYTHONUNBUFFERED: '1'
+  OUT: /tmp/stage0c-output
+  HARNESS_SHA: '5dba6c073db2217bf2f0cad79c627beb3aeeace1'
+jobs:
+  archive-analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: flat
+            stage0_id: '15072268968'
+            stage0_digest: 'sha256:38b33b7c91b32360646a8b6a757c0c289feca9228ad533965ddc253fb711a474'
+            stage0b_id: '15084666957'
+            stage0b_digest: 'sha256:56dab6bf7ffba3a7e4b3a35ee00c22129b8619620f8f40af9f2b087ec6bb9c81'
+          - mode: native
+            stage0_id: '15074601908'
+            stage0_digest: 'sha256:88861e5a8088a17f69115146b67739091c722c4601fc5e164a4c8ccf8762cf7e'
+            stage0b_id: '15084402726'
+            stage0b_digest: 'sha256:07dd1b677c22ff29d567b8d962ac5dc2237f9249d42ece7740d7f3ff973e31d5'
+    env:
+      MODE: ${{ matrix.mode }}
+      STAGE0_ID: ${{ matrix.stage0_id }}
+      STAGE0_DIGEST: ${{ matrix.stage0_digest }}
+      STAGE0B_ID: ${{ matrix.stage0b_id }}
+      STAGE0B_DIGEST: ${{ matrix.stage0b_digest }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5dba6c073db2217bf2f0cad79c627beb3aeeace1
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.16'
+      - name: Verify harness and pin runtime (no engine execution)
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT"
+          test "$(git rev-parse HEAD)" = "$HARNESS_SHA"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          python -m pip install numpy==2.5.5 scipy==1.18.1
+          python -m pip freeze > "$OUT/dependencies.txt"
+          python -c 'import sys,numpy as n; print(sys.version); n.show_runtime()' | tee "$OUT/runtime.txt"
+          lscpu > "$OUT/cpu.txt"
+          sha256sum research/control_tests/stage0c_archive.py > "$OUT/harness.sha256"
+          python -m py_compile research/control_tests/stage0c_archive.py
+      - name: Verify immutable artifact identities and recorded digests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$STAGE0_ID" > "$OUT/stage0_artifact_metadata.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$STAGE0B_ID" > "$OUT/stage0b_artifact_metadata.json"
+          python - <<'PY'
+          import os,json
+          from pathlib import Path
+          for key,run,name in (("stage0",45719840837,"stage0-"+os.environ["MODE"]+"-1a_dr05_dt0_r8"),("stage0b",45746142396,"stage0b-"+os.environ["MODE"]+"-coarse")):
+              p=json.loads((Path(os.environ["OUT"])/(key+"_artifact_metadata.json")).read_text())
+              assert p["id"]==int(os.environ[key.upper()+"_ID"])
+              assert p["digest"]==os.environ[key.upper()+"_DIGEST"]
+              assert p["name"]==name and p["workflow_run"]["id"]==run and not p["expired"]
+              print(key,p["id"],p["digest"],flush=True)
+          PY
+      - name: Download original Stage 0 archive
+        uses: actions/download-artifact@v4
+        with:
+          name: stage0-${{ matrix.mode }}-1a_dr05_dt0_r8
+          path: /tmp/stage0-reference
+          run-id: 45719840837
+          github-token: ${{ github.token }}
+      - name: Download Stage 0b spectral matrices
+        uses: actions/download-artifact@v4
+        with:
+          name: stage0b-${{ matrix.mode }}-coarse
+          path: /tmp/stage0b-reference
+          run-id: 45746142396
+          github-token: ${{ github.token }}
+      - name: Verify all extracted files against original SHA256 manifests
+        run: |
+          set -euo pipefail
+          for key in stage0 stage0b; do
+            cd "/tmp/$key-reference"
+            sha256sum -c SHA256SUMS | tee "$OUT/${key}_checks.txt"
+            cp SHA256SUMS "$OUT/${key}_reference_SHA256SUMS"
+          done
+      - name: Compute archive-only frozen modal and nonnormal diagnostics
+        run: |
+          set -euo pipefail
+          status=0
+          for switch in off on; do
+            mkdir -p "$OUT/$switch"
+            set +e
+            python research/control_tests/stage0c_archive.py "$MODE" "$switch" /tmp/stage0-reference /tmp/stage0b-reference "$OUT/$switch" 2>&1 | tee "$OUT/$switch/run.log"
+            rc=${PIPESTATUS[0]}
+            set -e
+            echo "$rc" > "$OUT/$switch/exit_code.txt"
+            if test "$rc" != 0; then status=1; fi
+          done
+          test -z "$(git status --porcelain --untracked-files=no)"
+          exit "$status"
+      - name: Checksum diagnostic outputs
+        if: always()
+        run: |
+          if test -d "$OUT"; then
+            cd "$OUT"
+            find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 -r sha256sum > SHA256SUMS
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage0c-${{ matrix.mode }}-coarse-archive
+          path: ${{ env.OUT }}
+          if-no-files-found: error
+          retention-days: 90
