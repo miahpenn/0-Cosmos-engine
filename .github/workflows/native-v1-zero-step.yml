@@ -1,0 +1,105 @@
+name: Native V1 frozen zero-step replay
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'engine/**'
+      - 'results/research/native_v1_static_consolidation/**'
+      - '.github/workflows/native-v1-zero-step.yml'
+      - 'vendor/**'
+      - '.gitmodules'
+      - 'requirements.txt'
+
+permissions:
+  contents: read
+
+jobs:
+  frozen-zero-step:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      OPENBLAS_NUM_THREADS: '1'
+      OMP_NUM_THREADS: '1'
+      PYTHONUNBUFFERED: '1'
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+      BASELINE: b49cb4976911747e72283ff11f876c999587f86e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13.5'
+      - name: Install frozen V1 numerical dependencies
+        run: python -m pip install numpy==2.3.5 scipy==1.17.0 sympy==1.14.0 mpmath==1.3.0
+      - name: Verify source pins and record environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/v1-replay
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse HEAD:vendor/bb-palatini-unified-r0)" = d6052d605673ce9d82cdc99b0df79855fa2ea215
+          git diff --exit-code "$BASELINE" HEAD -- engine/native_v1 results/research/native_v1_static_consolidation
+          git rev-parse HEAD > /tmp/v1-replay/HEAD.txt
+          git submodule status --recursive > /tmp/v1-replay/submodules.txt
+          python -m pip freeze > /tmp/v1-replay/dependencies.txt
+          lscpu > /tmp/v1-replay/cpu.txt
+          python -c 'import numpy as np, scipy; np.show_config(); np.show_runtime(); scipy.show_config()' > /tmp/v1-replay/numerical-runtime.txt
+      - name: Replay both frozen initial records without advancing time
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import platform
+          import traceback
+          import numpy as np
+          import scipy
+          from engine.native_v1 import witness as D, guards as G
+
+          assert (platform.python_version(), np.__version__, scipy.__version__) == ('3.13.5', '2.3.5', '1.17.0')
+          assert os.environ['OPENBLAS_NUM_THREADS'] == os.environ['OMP_NUM_THREADS'] == '1'
+          root = pathlib.Path('results/research/native_v1_static_consolidation')
+          out = pathlib.Path('/tmp/v1-replay')
+          # The frozen manifest uses archive-relative paths. Only the evidence
+          # and README moved into the repository results directory.
+          manifest = (root / 'SHA256SUMS').read_text().splitlines()
+          assert len(manifest) == 25
+          for row in manifest:
+              digest, path = row.split(None, 1)
+              path = path.removeprefix('./')
+              target = pathlib.Path(path) if path.startswith('engine/native_v1/') else root / path
+              assert hashlib.sha256(target.read_bytes()).hexdigest() == digest, path
+          expected = {8: '6659af3f6caa41a3f63e4eca896c8535ffb3946d7c14afa9028e3627097f3ced',
+                      16: '3bb6b40c5d35e8e976b35b43bdf028f6f7595a20652cddf856716cd761981f5a'}
+          report = {'classification': 'zero-step strict frozen-record comparison; cross-platform equality not assumed',
+                    'head': os.environ['EXPECTED_HEAD'], 'temporal_steps': 0,
+                    'scientific_admission': False, 'cases': []}
+          for n in (8, 16):
+              case = {'n': n, 'equal': False}
+              try:
+                  ref = (root / 'evidence' / f'N{n}.json').read_bytes()
+                  assert hashlib.sha256(ref).hexdigest() == expected[n]
+                  A, x, z, b = D.initial(n)
+                  path = out / f'N{n}.json'
+                  G.attempt(D, A, x, z, 0., b, path, 'dry_initial')
+                  case['equal'] = json.loads(path.read_text()) == json.loads(ref)
+              except Exception:
+                  case['error'] = traceback.format_exc()
+              report['cases'].append(case)
+          (out / 'comparison.json').write_text(json.dumps(report, indent=2, allow_nan=False) + '\n')
+          print(json.dumps(report, indent=2))
+          assert all(case['equal'] for case in report['cases']), 'Frozen record mismatch or execution error; retain records; do not retune'
+          PY
+      - name: Preserve attempted records and runtime provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-v1-zero-step-${{ github.event.pull_request.head.sha }}
+          path: /tmp/v1-replay/
+          if-no-files-found: warn
+          retention-days: 90
