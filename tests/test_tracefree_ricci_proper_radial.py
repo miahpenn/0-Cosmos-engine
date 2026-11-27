@@ -734,3 +734,72 @@ def test_eight_node_areal_authorization_is_exact_blob():
         historical = SOURCE_BLOBS[path]
         assert _source_blob_matches(path, historical, historical, authorized_head)
         assert not _source_blob_matches(path, historical, historical, "f" * 40)
+
+
+
+def test_native_v1_static_authorization_exact_blobs():
+    """Owner-authorized transfer only; both historical Ricci guards must fail closed."""
+    from tools.audit_tracefree_ricci_proper_radial import (
+        AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS,
+        _drop_authorized_off_audit_paths,
+        _unexpected_source_pinned_paths,
+    )
+
+    expected = {
+        "engine/native_v1/A8_certificate.json": "db321ab97c5ce2a3862d6d4d82fc95ddf784fe39",
+        "engine/native_v1/__init__.py": "e92392063b095d3943db4348a07501fc0d9d450a",
+        "engine/native_v1/assembly.py": "128cc7e34a627a4eb76ce4a0250003a16332fd04",
+        "engine/native_v1/basis.json": "a7f3ff76a30ff48fd7e6db2c7442d324d064a925",
+        "engine/native_v1/candidate.py": "329cbe565577dfb73fdc8cbd68f2d641473c2321",
+        "engine/native_v1/common.py": "166a36909a5c6678a89cd31c5c9d8d1a9b29ed4d",
+        "engine/native_v1/composed.py": "eab539787091cd9854561452dd647afa92f2dfe6",
+        "engine/native_v1/geometry_core.py": "e342dd4557b8811809affc08e7d6d803db3a8141",
+        "engine/native_v1/guards.py": "400c442a874df051e4314e21a0908220f270c52a",
+        "engine/native_v1/matter_source.py": "9552989fb275f53e3d7fb618ba83b4a333b42608",
+        "engine/native_v1/moments.json": "c4ed26c989003ad12c0701caa87953d34392a785",
+        "engine/native_v1/moments.py": "30fe1d4f9a5689af0c6547844736f5e9596216b3",
+        "engine/native_v1/native_cmc.py": "51ec81c179d100d2accc0d5fae455816285ba410",
+        "engine/native_v1/rate.py": "f029289e9e3a39a17dd595b084bd7a9d802149e8",
+        "engine/native_v1/scalar.py": "ae232c6ce19130f8ba0552daa2a372ac6376317b",
+        "engine/native_v1/shared.py": "e1b58b3332c5c1490c0a712f6b8202ceda46fa85",
+        "engine/native_v1/transport.py": "e6eab0f4519053f9c79ea922560a8633715a9263",
+        "engine/native_v1/witness.py": "409b227467c23cec7c090407f43c279dbbb29d9b",
+    }
+    workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows"
+                / "tracefree-ricci-proper-radial.yml").read_text(encoding="utf-8")
+    block = workflow.split("declare -A authorized_off_audit_heads=(", 1)[1].split("\n          )", 1)[0]
+    shell_pins = dict(re.findall(r'\["(engine/native_v1/[^"]+)"\]="([0-9a-f]{40})"', block))
+    assert shell_pins == expected
+    assert {p: s for p, s in AUTHORIZED_OFF_AUDIT_REPAIR_HEAD_BLOBS.items()
+            if p.startswith("engine/native_v1/")} == expected
+    paths = sorted(expected)
+    assert _drop_authorized_off_audit_paths(paths, expected.__getitem__) == []
+    for path in paths:
+        changed = dict(expected, **{path: "0" * 40})
+        assert _drop_authorized_off_audit_paths(paths, changed.__getitem__) == [path]
+        assert _unexpected_source_pinned_paths([path], set()) == [path]
+    extra = "engine/native_v1/unapproved.py"
+    assert _drop_authorized_off_audit_paths([extra], lambda _: next(iter(expected.values()))) == [extra]
+    assert _unexpected_source_pinned_paths([extra], set()) == [extra]
+
+    # Execute the actual workflow filtering loop, with only git readback mocked.
+    loop = workflow.split('          for path in "${!authorized_off_audit_heads[@]}"; do\n', 1)[1].split("          done\n", 1)[0]
+    script = ("set -euo pipefail\n"
+              + "declare -A authorized_off_audit_heads=(\n" + block + "\n)\n"
+              + "declare -A observed=(\n"
+              + "\n".join(f'["{p}"]="{s}"' for p, s in expected.items()) + "\n)\n"
+              + 'git() { local p="${2#HEAD:}"; printf "%s\\n" "${observed[$p]:-}"; }\n'
+              + 'unexpected="$(printf "%s\\n" "$@")"\n'
+              + 'if [[ -n "${MUTATE:-}" ]]; then observed[$MUTATE]="' + "0" * 40 + '"; fi\n'
+              + 'for path in "${!authorized_off_audit_heads[@]}"; do\n' + loop + 'done\n'
+              + 'printf "%s" "$unexpected"\n')
+    def remaining(items, mutation=""):
+        import os
+        result = subprocess.run(["bash", "-c", script, "guard", *items],
+                                env={**os.environ, "MUTATE": mutation},
+                                capture_output=True, text=True, check=True)
+        return result.stdout.splitlines()
+    assert remaining(paths) == []
+    for path in paths:
+        assert remaining(paths, path) == [path]
+    assert remaining(paths + [extra]) == [extra]
