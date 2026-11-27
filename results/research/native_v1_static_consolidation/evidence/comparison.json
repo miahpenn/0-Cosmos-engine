@@ -1,0 +1,33 @@
+{
+  "criterion": "exact full JSON value equality against locked initial record; any mismatch retained, no tolerance or gate changes",
+  "environment": [
+    "3.13.5",
+    "2.3.5",
+    "1.17.0"
+  ],
+  "temporal_steps": 0,
+  "cases": [
+    {
+      "n": 8,
+      "status": "valid",
+      "equal": true,
+      "difference_count": 0,
+      "H": 9.551194177324194e-18,
+      "M": 0.0,
+      "max_departure": 2.7755575615628914e-17,
+      "input_digest_equal": true,
+      "differences": []
+    },
+    {
+      "n": 16,
+      "status": "valid",
+      "equal": true,
+      "difference_count": 0,
+      "H": 1.5162809168531304e-18,
+      "M": 0.0,
+      "max_departure": 9.107298248878237e-18,
+      "input_digest_equal": true,
+      "differences": []
+    }
+  ]
+}
